@@ -75,14 +75,30 @@ func _perform_mouse_raycast() -> Dictionary:
 	return space_state.intersect_ray(query)
 
 
+# =============================================================================
+# HIT RESOLUTION & SIDE-SNAPPING LOGIC
+# =============================================================================
 ## Extracts local Vector2i grid coordinates from raw 3D physics collision bounds
 func _convert_hit_to_grid(hit_position: Vector3, hit_normal: Vector3) -> Vector2i:
-	var inward_sample = hit_position - (hit_normal * 0.1)
-	var gx = clampi(int(floor(inward_sample.x / grid.CELL_SIZE)), 0, grid.GRID_WIDTH - 1)
-	var gz = clampi(int(floor(inward_sample.z / grid.CELL_SIZE)), 0, grid.GRID_DEPTH - 1)
+	var sample_position: Vector3
+	
+	# --- MODIFIABLE SNAPPING BEHAVIOR ---
+	# Check if the normal is mostly pointing upwards (Top face of a block)
+	if hit_normal.y > 0.5:
+		# Push sample inside the block to read the terrain surface grid point
+		sample_position = hit_position - (hit_normal * 0.1)
+	else:
+		# Push sample OUTWARD into the empty adjacent space next to the block wall
+		sample_position = hit_position + (hit_normal * 0.1)
+	
+	var gx = clampi(int(floor(sample_position.x / grid.CELL_SIZE)), 0, grid.GRID_WIDTH - 1)
+	var gz = clampi(int(floor(sample_position.z / grid.CELL_SIZE)), 0, grid.GRID_DEPTH - 1)
 	return Vector2i(gx, gz)
 
 
+# =============================================================================
+# CONDITIONAL VALIDATION ENGINE
+# =============================================================================
 ## Orchestrates layout updates, checks guidelines, and updates visuals
 func _update_placement_logic(gx: int, gz: int) -> void:
 	var within_boundaries = (gx + preview_size.x <= grid.GRID_WIDTH) and (gz + preview_size.z <= grid.GRID_DEPTH)
@@ -94,6 +110,7 @@ func _update_placement_logic(gx: int, gz: int) -> void:
 	var perfect_flat_foundation = structural_data["is_flat"]
 	var height_limit_exceeded = (structural_data["highest_tier"] + preview_size.y) > 3
 	
+	# --- CUSTOM RULES CAN BE ADDED HERE ---
 	# Consolidated master state definition
 	is_placement_valid = within_boundaries and perfect_flat_foundation and not height_limit_exceeded
 	
