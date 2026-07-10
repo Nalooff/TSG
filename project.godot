@@ -22,7 +22,7 @@ EventBus="*res://AutoLoad/EventBus.gd"
 
 event_bus/camera_changed=true
 event_bus/pawn_moved=false
-event_bus/game_started=false
+event_bus/game_started=true
 
 [input]
 

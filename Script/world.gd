@@ -7,6 +7,10 @@ extends Node3D
 @export var cam3D_view3D : Camera3D
 @export var grid : Grid
 
+@export_group("Orthogonal Settings")
+## Extra space around the grid edges so it's not crammed against the screen boundaries.
+@export var grid_padding : float = 2.0 
+
 var _cam3D_offset = Vector3(0.0, 20.0, 27.0)
 var _cam2D_offset = Vector3(0, 30, 0)
 
@@ -91,12 +95,35 @@ func _update_perspective_position(target_center: Vector3) -> void:
 # ==============================================================================
 
 func _setup_topdown_camera(target_center: Vector3) -> void:
+	# 1. Force the camera to Orthogonal projection mode via code
+	cam3D_view2D.projection = Camera3D.PROJECTION_ORTHOGONAL
+	
+	# 2. Automatically adjust the camera size to fit the grid bounding box
+	_fit_orthogonal_camera_to_grid()
+	
 	# Position the camera directly above the center point
 	cam3D_view2D.global_position = target_center + _cam2D_offset
 	
 	# Force the camera to point straight down at the center point
 	cam3D_view2D.look_at(target_center, Vector3.FORWARD)
 
+func _fit_orthogonal_camera_to_grid() -> void:
+	if not grid:
+		return
+		
+	# Calculate the absolute world size of your grid using your constants
+	var grid_width : float = grid.GRID_WIDTH * grid.CELL_SIZE
+	var grid_depth : float = grid.GRID_DEPTH * grid.CELL_SIZE
+	
+	# Get the aspect ratio of the player's screen viewport
+	var aspect_ratio = get_viewport().get_visible_rect().size.aspect()
+	
+	# Determine if the width or the depth dictates how zoomed out we need to be
+	var size_based_on_width = grid_width / aspect_ratio
+	var size_based_on_depth = grid_depth
+	
+	# Set the orthogonal camera size to the larger requirement, plus your inspector padding
+	cam3D_view2D.size = max(size_based_on_width, size_based_on_depth) + grid_padding
 
 func _setup_perspective_camera(target_center: Vector3) -> void:
 	_update_perspective_position(target_center)

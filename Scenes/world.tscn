@@ -12,6 +12,7 @@ grid = NodePath("Grid")
 
 [node name="View3D" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.848048, 0.529919, 0, -0.529919, 0.848048, 0, 2.40328, 6.06999)
+cull_mask = 524287
 
 [node name="View2D" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 10.709, 0)
