@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cp64sr6bfbmps"]
+
+[ext_resource type="Script" path="res://GridGeneration/grid.gd" id="1_nx7an"]
+
+[node name="Grid" type="Node3D"]
+script = ExtResource("1_nx7an")

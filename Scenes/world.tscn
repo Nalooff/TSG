@@ -1,0 +1,21 @@
+[gd_scene load_steps=4 format=3 uid="uid://jk28lrtar12u"]
+
+[ext_resource type="PackedScene" uid="uid://ex7q0ctfewon" path="res://Scenes/base_pawn.tscn" id="1_er4mj"]
+[ext_resource type="Script" path="res://Script/world.gd" id="1_ys3en"]
+[ext_resource type="PackedScene" path="res://GridGeneration/grid.tscn" id="3_wfsc2"]
+
+[node name="World" type="Node3D" node_paths=PackedStringArray("cam3D_view2D", "cam3D_view3D", "grid")]
+script = ExtResource("1_ys3en")
+cam3D_view2D = NodePath("View2D")
+cam3D_view3D = NodePath("View3D")
+grid = NodePath("Grid")
+
+[node name="View3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.848048, 0.529919, 0, -0.529919, 0.848048, 0, 2.40328, 6.06999)
+
+[node name="View2D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 10.709, 0)
+
+[node name="Grid" parent="." instance=ExtResource("3_wfsc2")]
+
+[node name="BasePawn" parent="." instance=ExtResource("1_er4mj")]
