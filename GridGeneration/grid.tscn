@@ -1,6 +1,18 @@
-[gd_scene load_steps=2 format=3 uid="uid://cp64sr6bfbmps"]
+[gd_scene load_steps=5 format=3 uid="uid://cp64sr6bfbmps"]
 
 [ext_resource type="Script" path="res://GridGeneration/grid.gd" id="1_nx7an"]
+[ext_resource type="Script" path="res://GridGeneration/map_generator.gd" id="2_l4sc6"]
+[ext_resource type="Script" path="res://GridGeneration/block_preview.gd" id="3_tshta"]
+[ext_resource type="Script" path="res://GridGeneration/piece_placer.gd" id="4_e3r4k"]
 
 [node name="Grid" type="Node3D"]
 script = ExtResource("1_nx7an")
+
+[node name="MapGenerator" type="Node" parent="."]
+script = ExtResource("2_l4sc6")
+
+[node name="BlockPreview" type="Node3D" parent="."]
+script = ExtResource("3_tshta")
+
+[node name="PiecePlacer" type="Node" parent="."]
+script = ExtResource("4_e3r4k")
