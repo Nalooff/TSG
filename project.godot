@@ -21,9 +21,9 @@ EventBus="*res://AutoLoad/EventBus.gd"
 
 [debug]
 
-event_bus/config/show_argument_names=true
+event_bus/config/show_argument_names=false
 event_bus/signals/camera_changed=true
-event_bus/signals/preview_updated=true
+event_bus/signals/preview_updated=false
 event_bus/signals/block_placed=true
 event_bus/signals/pawn_moved=false
 event_bus/signals/game_started=false
