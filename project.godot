@@ -21,11 +21,14 @@ EventBus="*res://AutoLoad/EventBus.gd"
 
 [debug]
 
-event_bus/camera_changed=true
-event_bus/pawn_moved=false
-event_bus/game_started=true
-event_bus/preview_updated=true
-event_bus/block_placed=true
+event_bus/config/show_argument_names=true
+event_bus/signals/camera_changed=true
+event_bus/signals/preview_updated=true
+event_bus/signals/block_placed=true
+event_bus/signals/pawn_moved=false
+event_bus/signals/game_started=false
+event_bus/config/show_emitter_line_number=true
+event_bus/config/show_receiver_line_number=true
 
 [input]
 
