@@ -5,7 +5,7 @@ class_name BlockPreview
 	set(value):
 		preview_size = value
 		_update_preview_mesh_dimensions()
-		_force_validation_update() # Recalculate rules if block size scales mid-game
+		_force_validation_update() # Re-runs structural checks through the central pipeline
 
 @onready var grid: Grid = get_parent()
 
@@ -14,7 +14,7 @@ var preview_instance: MeshInstance3D
 var valid_mat: StandardMaterial3D
 var invalid_mat: StandardMaterial3D
 
-# Expose validation status so PiecePlacer can read it
+# Expose validation status so other systems can read it safely if needed
 var is_placement_valid: bool = false
 
 # Performance Optimization Cache Tracking
@@ -57,11 +57,24 @@ func _process(_delta: float) -> void:
 	
 	var grid_coords = _convert_hit_to_grid(ray_result.position, ray_result.normal)
 	
-	# Only run algorithmic loops if mouse shifted to a new cell
+	# Only execute logic if the cursor actually transitions to an entirely new cell
 	if grid_coords.x != _last_gx or grid_coords.y != _last_gz:
 		_last_gx = grid_coords.x
 		_last_gz = grid_coords.y
-		_update_placement_logic(_last_gx, _last_gz)
+		_process_placement_update(_last_gx, _last_gz)
+
+
+## Centralized execution pipeline to eliminate duplicate calculation passes
+func _process_placement_update(gx: int, gz: int) -> void:
+	# 1. Update structural rules, states and flags
+	_update_placement_logic(gx, gz)
+	
+	# 2. Package current coordinate state for transmission 
+	var terrain_height = grid.get_height_at(gx, gz)
+	var operational_grid_pos = Vector3i(gx, terrain_height, gz)
+	
+	# 3. Notify the system instantly with position, block dimensions, and safety rule states
+	EventBus.preview_updated.emit(operational_grid_pos, preview_size, is_placement_valid)
 
 
 ## Casts a 3D physical vector down into the viewport scene state
@@ -82,13 +95,10 @@ func _perform_mouse_raycast() -> Dictionary:
 func _convert_hit_to_grid(hit_position: Vector3, hit_normal: Vector3) -> Vector2i:
 	var sample_position: Vector3
 	
-	# --- MODIFIABLE SNAPPING BEHAVIOR ---
 	# Check if the normal is mostly pointing upwards (Top face of a block)
 	if hit_normal.y > 0.5:
-		# Push sample inside the block to read the terrain surface grid point
 		sample_position = hit_position - (hit_normal * 0.1)
 	else:
-		# Push sample OUTWARD into the empty adjacent space next to the block wall
 		sample_position = hit_position + (hit_normal * 0.1)
 	
 	var gx = clampi(int(floor(sample_position.x / grid.CELL_SIZE)), 0, grid.GRID_WIDTH - 1)
@@ -97,7 +107,7 @@ func _convert_hit_to_grid(hit_position: Vector3, hit_normal: Vector3) -> Vector2
 
 
 # =============================================================================
-# CONDITIONAL VALIDATION ENGINE
+# CONDITIONAL VALIDATION PLACEMENT
 # =============================================================================
 ## Orchestrates layout updates, checks guidelines, and updates visuals
 func _update_placement_logic(gx: int, gz: int) -> void:
@@ -110,7 +120,6 @@ func _update_placement_logic(gx: int, gz: int) -> void:
 	var perfect_flat_foundation = structural_data["is_flat"]
 	var height_limit_exceeded = (structural_data["highest_tier"] + preview_size.y) > 3
 	
-	# --- CUSTOM RULES CAN BE ADDED HERE ---
 	# Consolidated master state definition
 	is_placement_valid = within_boundaries and perfect_flat_foundation and not height_limit_exceeded
 	
@@ -163,7 +172,7 @@ func _update_preview_transform(gx: int, gz: int, target_tier: int) -> void:
 	preview_instance.material_override = valid_mat if is_placement_valid else invalid_mat
 
 
-## Clears cache tracking so structural checks recalculate immediately
+## Forces the central update routine to process immediate changes safely
 func _force_validation_update() -> void:
-	_last_gx = -1
-	_last_gz = -1
+	if _last_gx != -1 and _last_gz != -1:
+		_process_placement_update(_last_gx, _last_gz)

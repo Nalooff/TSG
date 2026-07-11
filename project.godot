@@ -11,6 +11,7 @@ config_version=5
 [application]
 
 config/name="TSG"
+run/main_scene="res://Scenes/world.tscn"
 config/features=PackedStringArray("4.1", "Forward Plus")
 config/icon="res://icon.svg"
 
@@ -23,6 +24,8 @@ EventBus="*res://AutoLoad/EventBus.gd"
 event_bus/camera_changed=true
 event_bus/pawn_moved=false
 event_bus/game_started=true
+event_bus/preview_updated=true
+event_bus/block_placed=true
 
 [input]
 
