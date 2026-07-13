@@ -4,15 +4,13 @@ extends Node
 # ==============================================================================
 # HOW TO CONFIG THE EVENT BUS VIA PROJECT SETTINGS
 # ==============================================================================
-# Go to: Project -> Project Settings
-# -> debug/event_bus/config/...  (Controls global logger output formatting)
-# -> debug/event_bus/signals/... (True = Log this signal to console; False = Mute logs)
+# Go to: Project -> Project Settings -> Debug
+# event_bus/config/...  (Controls global logger output formatting)
+# event_bus/signals/... (True = Log this signal to console; False = Mute logs)
 #
-# HOW TO EMIT A SIGNAL IN YOUR CODE:
-#   EventBus.preview_updated.emit(pos, size, true)
+# HOW TO EMIT A SIGNAL TO GET THE DEBUG:
+#   EventBus.signal_name.emit(args (max 8))
 #
-# HOW TO LISTEN TO A SIGNAL IN YOUR CODE:
-#   EventBus.preview_updated.connect(_on_preview_updated)
 # ==============================================================================
 
 # ==============================================================================
