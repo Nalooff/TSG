@@ -23,14 +23,14 @@ EventBus="*res://AutoLoad/EventBus.gd"
 
 event_bus/config/show_argument_names=false
 event_bus/config/show_emitter_line_number=true
-event_bus/config/show_receiver_line_number=true
+event_bus/config/show_receiver_line_number=false
 event_bus/signals/camera_changed=true
 event_bus/signals/preview_updated=false
 event_bus/signals/placement_requested=true
 event_bus/signals/block_placed=false
-event_bus/signals/suppression_requested=false
+event_bus/signals/suppression_requested=true
 event_bus/signals/block_suppressed=false
-event_bus/signals/pawn_moved=true
+event_bus/signals/pawn_moved=false
 event_bus/signals/game_started=false
 
 [input]
