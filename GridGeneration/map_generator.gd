@@ -15,14 +15,14 @@ func _ready() -> void:
 		Mode.TOPOLOGY: _generate_from_topology_colors()
 		Mode.PLAYER: _generate_flat_ground()
 			
-	grid.update_grid_line_network(self)
+	grid.update_grid_line_network()
 
 ## Creates a uniform baseline terrain setting all heights to layer zero
 func _generate_flat_ground() -> void:
 	for x in range(grid.GRID_WIDTH):
 		for z in range(grid.GRID_DEPTH):
 			grid.set_height_at(x, z, 0)
-			grid.spawn_visual_tile(x, 0, z, self)
+			grid.spawn_visual_tile(x, 0, z)
 
 ## Uses a math noise module to output dynamic altitude variations across the map
 func _generate_noise_terrain() -> void:
@@ -38,7 +38,7 @@ func _generate_noise_terrain() -> void:
 			var height = clampi(int(floor(normalized_noise * 4.0)), 0, 3)
 			
 			grid.set_height_at(x, z, height)
-			grid.spawn_visual_tile(x, height, z, self)
+			grid.spawn_visual_tile(x, height, z)
 
 ## Evaluates pixel channels from an input texture to derive local elevation layers
 func _generate_from_topology_colors() -> void:
@@ -63,4 +63,4 @@ func _generate_from_topology_colors() -> void:
 			else: height = 3
 			
 			grid.set_height_at(gx, gz, height)
-			grid.spawn_visual_tile(gx, height, gz, self)
+			grid.spawn_visual_tile(gx, height, gz)

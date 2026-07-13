@@ -11,6 +11,7 @@ extends Node
 signal camera_changed(cam: Camera3D)
 signal preview_updated(grid_pos: Vector3i, size: Vector3i, is_valid: bool)
 signal block_placed(grid_position: Vector3i, size: Vector3i, is_successful: bool)
+signal placement_requested(grid_pos: Vector2i, size: Vector3i)
 signal pawn_moved(pawn: Node, target_tile: Vector2i)
 signal game_started(player_count: int)
 

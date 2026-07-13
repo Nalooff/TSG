@@ -20,7 +20,7 @@ var _last_gz: int = -1
 
 func _ready() -> void:
 	EventBus.connect("camera_changed", func(cam): current_cam = cam)
-	EventBus.connect("block_placed", func(_pos, _size, is_successful): if is_successful : _force_validation_update())
+	EventBus.connect("block_placed", func(_pos, _size, is_successful): if is_successful: _force_validation_update())
 	_setup_materials()
 	_build_preview_node()
 
@@ -98,7 +98,6 @@ func _perform_mouse_raycast() -> Dictionary:
 func _convert_hit_to_grid(hit_position: Vector3, hit_normal: Vector3) -> Vector2i:
 	var sample_position = hit_position + (hit_normal * (0.1 if hit_normal.y <= 0.5 else -0.1))
 	
-	# Determine target origin based on footprint parity (Odd vs Even sizing)
 	var gx = _calculate_axis_start_index(sample_position.x, preview_size.x, grid.GRID_WIDTH)
 	var gz = _calculate_axis_start_index(sample_position.z, preview_size.z, grid.GRID_DEPTH)
 	
@@ -111,17 +110,14 @@ func _calculate_axis_start_index(spatial_pos: float, block_dim: int, grid_limit:
 	var start_idx: int
 	
 	if block_dim % 2 == 1:
-		# Odd sizes (1x1, 3x3): Center cleanly on the hovered tile
 		start_idx = exact_hover_idx - (block_dim - 1) / 2
 	else:
-		# Even sizes (2x2): Check sub-tile position to pick the closest 4 tiles
 		var fractional_offset = precise_cell - exact_hover_idx
 		if fractional_offset > 0.5:
 			start_idx = exact_hover_idx - (block_dim / 2) + 1
 		else:
 			start_idx = exact_hover_idx - (block_dim / 2)
 			
-	# Enforce hard boundaries so the block footprint never escapes the map grid boundaries
 	return clampi(start_idx, 0, grid_limit - block_dim)
 
 ## Reads the matrix values across a block footprint to check flatness and peak bounds
