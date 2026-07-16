@@ -10,6 +10,9 @@ enum Mode { AUTO, TOPOLOGY, PLAYER }
 func _ready() -> void:
 	await grid.ready
 	
+	generate_map()
+
+func generate_map() -> void:
 	match generation_mode:
 		Mode.AUTO: _generate_noise_terrain()
 		Mode.TOPOLOGY: _generate_from_topology_colors()
