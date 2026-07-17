@@ -1,0 +1,998 @@
+#base_pawn.gd
+extends Node3D
+class_name BasePawn
+
+
+# Called when the node enters the scene tree for the first time.
+func _ready():
+	EventBus.connect("camera_changed", _on_cam_changed)
+	pass # Replace with function body.
+
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+func _process(_delta):
+	pass
+
+
+func _on_cam_changed(cam: Camera3D):
+	if cam.name == "View2D":
+		$Sprite3D.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	else:
+		$Sprite3D.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+
+
+--------------------------------------------------------------------
+#block_preview.gd
+extends Node3D
+class_name BlockPreview
+
+@export var preview_size: Vector3i = Vector3i(1, 1, 1):
+	set(value):
+		preview_size = value
+		_update_preview_mesh_dimensions()
+		_force_validation_update()
+
+@onready var grid: Grid = get_parent()
+
+var current_cam: Camera3D
+var preview_instance: MeshInstance3D
+var valid_mat: StandardMaterial3D
+var invalid_mat: StandardMaterial3D
+var is_placement_valid: bool = false
+
+var _last_gx: int = -1
+var _last_gz: int = -1
+
+func _ready() -> void:
+	EventBus.connect("camera_changed", func(cam): current_cam = cam)
+	EventBus.connect("block_placed", func(_pos, _size, is_successful): if is_successful: _force_validation_update())
+	_setup_materials()
+	_build_preview_node()
+
+## Configures the transparency and color states for validation materials
+func _setup_materials() -> void:
+	valid_mat = StandardMaterial3D.new()
+	valid_mat.albedo_color = Color(0.0, 1.0, 0.0, 0.4)
+	valid_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	
+	invalid_mat = StandardMaterial3D.new()
+	invalid_mat.albedo_color = Color(1.0, 0.0, 0.0, 0.4)
+	invalid_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+
+## Instantiates the mesh instance node used for visual placement previews
+func _build_preview_node() -> void:
+	preview_instance = MeshInstance3D.new()
+	preview_instance.mesh = BoxMesh.new()
+	_update_preview_mesh_dimensions()
+	add_child(preview_instance)
+
+## Adjusts the scale properties of the preview mesh to match active block dimensions
+func _update_preview_mesh_dimensions() -> void:
+	if not preview_instance: return
+	(preview_instance.mesh as BoxMesh).size = Vector3(preview_size) * grid.CELL_SIZE
+
+## Monitors camera inputs and mouse movements to trigger position recalculations
+func _process(_delta: float) -> void:
+	if not current_cam or not preview_instance: return
+	
+	var ray_result = _perform_mouse_raycast()
+	if ray_result.is_empty(): return
+	
+	var grid_coords = _convert_hit_to_grid(ray_result.position, ray_result.normal)
+	_handle_grid_cell_transition(grid_coords.x, grid_coords.y)
+
+## Checks if the cursor has moved to a new cell before executing validation updates
+func _handle_grid_cell_transition(gx: int, gz: int) -> void:
+	if gx != _last_gx or gz != _last_gz:
+		_last_gx = gx
+		_last_gz = gz
+		_process_placement_update(_last_gx, _last_gz)
+
+## Runs the complete validation pipeline and announces changes to the system
+func _process_placement_update(gx: int, gz: int) -> void:
+	var structural_data = _scan_footprint_terrain(gx, gz)
+	
+	is_placement_valid = _evaluate_placement_rules(structural_data)
+	
+	_update_preview_transform(gx, gz, structural_data["highest_tier"])
+	_update_preview_material()
+	_broadcast_preview_state(gx, structural_data["highest_tier"], gz)
+
+## Evaluates foundation flatness and global height limitations within safe bounds
+func _evaluate_placement_rules(structural_data: Dictionary) -> bool:
+	var perfect_flat_foundation = structural_data["is_flat"]
+	var height_limit_exceeded = (structural_data["highest_tier"] + preview_size.y) > 3
+	return perfect_flat_foundation and not height_limit_exceeded
+
+## Dispatches updated placement data parameters to the global event system
+func _broadcast_preview_state(gx: int, gy: int, gz: int) -> void:
+	var operational_grid_pos = Vector3i(gx, gy, gz)
+	EventBus.preview_updated.emit(operational_grid_pos, preview_size, is_placement_valid)
+
+## Projects a ray from the viewport camera to detect mouse collisions with the 3D environment
+func _perform_mouse_raycast() -> Dictionary:
+	var mouse_pos = get_viewport().get_mouse_position()
+	var ray_origin = current_cam.project_ray_origin(mouse_pos)
+	var ray_end = ray_origin + current_cam.project_ray_normal(mouse_pos) * 2000.0
+	
+	var space_state = get_world_3d().direct_space_state
+	var query = PhysicsRayQueryParameters3D.create(ray_origin, ray_end)
+	return space_state.intersect_ray(query)
+
+## Converts raw hit vectors to centered grid positions while safely locking them inside map bounds
+func _convert_hit_to_grid(hit_position: Vector3, hit_normal: Vector3) -> Vector2i:
+	var sample_position = hit_position + (hit_normal * (0.1 if hit_normal.y <= 0.5 else -0.1))
+	
+	var gx = _calculate_axis_start_index(sample_position.x, preview_size.x, grid.GRID_WIDTH)
+	var gz = _calculate_axis_start_index(sample_position.z, preview_size.z, grid.GRID_DEPTH)
+	
+	return Vector2i(gx, gz)
+
+## Calculates the clamped starting grid index for an axis based on mouse position and size
+func _calculate_axis_start_index(spatial_pos: float, block_dim: int, grid_limit: int) -> int:
+	var precise_cell = spatial_pos / grid.CELL_SIZE
+	var exact_hover_idx = int(floor(precise_cell))
+	var start_idx: int
+	
+	if block_dim % 2 == 1:
+		start_idx = exact_hover_idx - (block_dim - 1) / 2
+	else:
+		var fractional_offset = precise_cell - exact_hover_idx
+		if fractional_offset > 0.5:
+			start_idx = exact_hover_idx - (block_dim / 2) + 1
+		else:
+			start_idx = exact_hover_idx - (block_dim / 2)
+			
+	return clampi(start_idx, 0, grid_limit - block_dim)
+
+## Reads the matrix values across a block footprint to check flatness and peak bounds
+func _scan_footprint_terrain(gx: int, gz: int) -> Dictionary:
+	var baseline_height = grid.get_height_at(gx, gz)
+	var result = {"highest_tier": baseline_height, "is_flat": true}
+	
+	for x_offset in range(preview_size.x):
+		for z_offset in range(preview_size.z):
+			var local_height = grid.get_height_at(gx + x_offset, gz + z_offset)
+			
+			if local_height != baseline_height:
+				result["is_flat"] = false
+			if local_height > result["highest_tier"]:
+				result["highest_tier"] = local_height
+				
+	return result
+
+## Adjusts the global translation vectors of the preview node in 3D space
+func _update_preview_transform(gx: int, gz: int, target_tier: int) -> void:
+	var offset_x = (preview_size.x * grid.CELL_SIZE) / 2.0
+	var offset_z = (preview_size.z * grid.CELL_SIZE) / 2.0
+	
+	var terrain_surface_y = (target_tier + 1) * grid.CELL_SIZE
+	var py = terrain_surface_y + ((preview_size.y * grid.CELL_SIZE) / 2.0)
+	
+	preview_instance.global_position = Vector3(
+		(gx * grid.CELL_SIZE) + offset_x,
+		py,
+		(gz * grid.CELL_SIZE) + offset_z
+	)
+
+## Switches the material overlay based on the current validation state status
+func _update_preview_material() -> void:
+	preview_instance.material_override = valid_mat if is_placement_valid else invalid_mat
+
+## Forces the calculation pipeline to re-evaluate properties using current positional caches
+func _force_validation_update() -> void:
+	if _last_gx != -1 and _last_gz != -1:
+		_process_placement_update(_last_gx, _last_gz)
+
+
+--------------------------------------------------------------------
+#EventBus.gd
+@tool
+extends Node
+
+# ==============================================================================
+# HOW TO CONFIG THE EVENT BUS VIA PROJECT SETTINGS
+# ==============================================================================
+# Go to: Project -> Project Settings -> Debug
+# event_bus/config/...  (Controls global logger output formatting)
+# event_bus/signals/... (True = Log this signal to console; False = Mute logs)
+#
+# HOW TO EMIT A SIGNAL TO GET DEBUG FEATURE:
+#   EventBus.signal_name.emit(args (max 8))
+#
+# ==============================================================================
+
+# ==============================================================================
+# SIGNAL REGISTRY
+# ==============================================================================
+signal camera_changed(cam: Camera3D)
+signal preview_updated(grid_pos: Vector3i, size: Vector3i, is_valid: bool)
+signal placement_requested(grid_2d_pos: Vector2i, size: Vector3i)
+signal block_placed(grid_position: Vector3i, size: Vector3i, is_successful: bool)
+signal suppression_requested(grid_2d_pos: Vector2i, size: Vector3i)
+signal block_suppressed(grid_position: Vector3i, size: Vector3i, is_successful: bool)
+signal pawn_moved(pawn: Node, target_tile: Vector2i)
+signal game_started(player_count: int)
+
+
+# ==============================================================================
+# ENGINE LIFECYCLE & LIVE COMPILATION
+# ==============================================================================
+
+## Godot entry point. Runs when the actual game runtime initializes.
+func _enter_tree() -> void:
+	if not Engine.is_editor_hint():
+		_run_runtime_setup()
+
+
+## Native static compiler hook. Fires instantly every time you save this script in the editor.
+static func _static_init() -> void:
+	if Engine.is_editor_hint():
+		_run_editor_setup_static()
+
+
+# ==============================================================================
+# STATIC EDITOR SETUP AUTOMATION (No memory duplication!)
+# ==============================================================================
+
+## Pure static context function to sync signals down to ProjectSettings sequentially.
+static func _run_editor_setup_static() -> void:
+	var script_resource: Script = load("res://AutoLoad/EventBus.gd")
+	if not script_resource:
+		return
+		
+	var settings_modified = false
+	
+	# 1. Sync global logger configuration settings keys
+	var configs = {
+		"debug/event_bus/config/show_argument_names": false,
+		"debug/event_bus/config/show_emitter_line_number": true,
+		"debug/event_bus/config/show_receiver_line_number": false
+	}
+	
+	var config_index = 0
+	for path in configs:
+		if not ProjectSettings.has_setting(path):
+			ProjectSettings.set_setting(path, configs[path])
+			_add_setting_meta_static(path, TYPE_BOOL, config_index)
+			settings_modified = true
+		config_index += 1
+
+	# 2. Extract valid custom signals defined in this script file
+	var valid_signal_paths = []
+	var base_node_signals = ClassDB.class_get_signal_list("Node").map(func(s): return s.name)
+	
+	for sig_info in script_resource.get_script_signal_list():
+		var sig_name = sig_info["name"]
+		if not (sig_name in base_node_signals or sig_name in ["script_changed", "property_list_changed"]):
+			valid_signal_paths.append("debug/event_bus/signals/" + sig_name)
+
+	# 3. Back up currently checked/unchecked values
+	var current_values_backup = {}
+	for path in valid_signal_paths:
+		if ProjectSettings.has_setting(path):
+			current_values_backup[path] = ProjectSettings.get_setting(path)
+			
+	# 4. Completely wipe out all existing custom signal entries from the config registry
+	for prop in ProjectSettings.get_property_list():
+		var path: String = prop["name"]
+		if path.begins_with("debug/event_bus/signals/"):
+			ProjectSettings.set_setting(path, null)
+			
+	# 5. Re-serialize them sequentially matching their file array location
+	for index in range(valid_signal_paths.size()):
+		var setting_path = valid_signal_paths[index]
+		var saved_toggle_state = current_values_backup.get(setting_path, false)
+		
+		ProjectSettings.set_setting(setting_path, saved_toggle_state)
+		_add_setting_meta_static(setting_path, TYPE_BOOL, index + 100)
+		settings_modified = true
+			
+	# 6. Commit structural changes directly to project.godot
+	if settings_modified:
+		ProjectSettings.save()
+		if ProjectSettings.has_method("notify_property_list_changed"):
+			ProjectSettings.notify_property_list_changed()
+
+
+## Attaches visual sorting parameters directly into the Godot Engine compilation dictionary.
+static func _add_setting_meta_static(path: String, type_enum: int, order_weight: int) -> void:
+	ProjectSettings.add_property_info({
+		"name": path,
+		"type": type_enum,
+		"hint": PROPERTY_HINT_NONE,
+		"order": order_weight
+	})
+
+
+# ==============================================================================
+# RUNTIME HOOKS & PROCESSING (Runs during live gameplay)
+# ==============================================================================
+
+## Discovers custom signals at runtime launch and establishes intercepting proxy closures
+func _run_runtime_setup() -> void:
+	var base_node_signals = ClassDB.class_get_signal_list("Node").map(func(s): return s.name)
+	
+	for sig_info in get_signal_list():
+		var sig_name = sig_info["name"]
+		if sig_name in base_node_signals or sig_name in ["script_changed", "property_list_changed"]:
+			continue
+			
+		_evaluate_and_hook_signal(sig_info)
+
+
+## Connects an intercepting lambda macro to a signal if its debug toggle is enabled
+func _evaluate_and_hook_signal(sig_info: Dictionary) -> void:
+	var sig_name = sig_info["name"]
+	var setting_path = "debug/event_bus/signals/" + sig_name
+	
+	var is_enabled = ProjectSettings.get_setting(setting_path) if ProjectSettings.has_setting(setting_path) else false
+	if not is_enabled:
+		return
+		
+	var sig: Signal = get(sig_name)
+	var expected_arg_count = sig_info["args"].size()
+	var arg_names = sig_info["args"].map(func(arg): return arg["name"])
+	
+	# Binds an 8-parameter anonymous proxy layout to support generic variable payloads cleanly
+	sig.connect(func(arg1=null, arg2=null, arg3=null, arg4=null, arg5=null, arg6=null, arg7=null, arg8=null): 
+		var raw_args = [arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8]
+		var passed_args = raw_args.slice(0, expected_arg_count)
+		
+		_process_signal_log(sig, passed_args, arg_names)
+	)
+
+
+## Unpacks the active system properties to assemble a visual terminal report
+func _process_signal_log(sig: Signal, args: Array, arg_names: Array) -> void:
+	var time = Time.get_time_string_from_system()
+	var emitter_string = _find_caller_source()
+	var formatted_arguments = _format_arguments_by_config(args, arg_names)
+	
+	_print_signal_block(sig.get_name(), emitter_string, formatted_arguments, time, sig.get_connections())
+
+
+## Walks up the active engine engine call stack to locate exactly who fired the signal
+func _find_caller_source() -> String:
+	var stack = get_stack()
+	if stack.size() >= 4:
+		var caller_info = stack[3]
+		var file_name: String = caller_info["source"].get_file()
+		
+		var config_path = "debug/event_bus/config/show_emitter_line_number"
+		var show_line = ProjectSettings.get_setting(config_path) if ProjectSettings.has_setting(config_path) else true
+		
+		if show_line:
+			return str(file_name, " -> line ", caller_info["line"], " in .", caller_info["function"], "()")
+		else:
+			return str(file_name, " in .", caller_info["function"], "()")
+			
+	return "Unknown Script Source"
+
+
+## Maps raw signal argument values to their script parameter names if configured to do so
+func _format_arguments_by_config(args: Array, arg_names: Array) -> Variant:
+	var config_path = "debug/event_bus/config/show_argument_names"
+	var show_names = ProjectSettings.get_setting(config_path) if ProjectSettings.has_setting(config_path) else false
+	
+	if not show_names or arg_names.is_empty():
+		return args
+		
+	var named_args_dict = {}
+	for i in range(args.size()):
+		var key = arg_names[i] if i < arg_names.size() else "param_" + str(i)
+		named_args_dict[key] = args[i]
+	return named_args_dict
+
+
+# ==============================================================================
+# CLEAN PRINT FORMATTER
+# ==============================================================================
+
+## Outputs a comprehensive, stylized diagnostic report block directly into the Godot Output console
+func _print_signal_block(sig_name: String, emitter: String, args: Variant, time: String, connections: Array) -> void:
+	print("\n========== SIGNAL EMITTED ==========")
+	print("Signal Name : ", sig_name)
+	print("Real Emitter: ", emitter)
+	print("Infos/Args  : ", args)
+	print("Time        : ", time)
+	
+	_print_receivers(connections)
+	print("=======================================\n")
+
+
+## Lists every object currently listening to this signal, along with their connected target method names
+func _print_receivers(connections: Array) -> void:
+	var active_listeners = connections.filter(func(c): return c["callable"].get_object() != self)
+	
+	if active_listeners.is_empty():
+		print("Receivers   : None (No one is listening!)")
+		return
+		
+	var config_path = "debug/event_bus/config/show_receiver_line_number"
+	var show_line = ProjectSettings.get_setting(config_path) if ProjectSettings.has_setting(config_path) else false
+	
+	print("Receivers")
+	for connection in active_listeners:
+		var callable: Callable = connection["callable"]
+		var receiver = callable.get_object()
+		var receiver_name = receiver.name if (receiver and "name" in receiver) else str(receiver)
+		
+		var action_text = _get_callable_action_text(callable)
+		var script_info = _get_receiver_script_info(receiver, callable, show_line)
+
+		print("   -> [", receiver_name, "] (", script_info, ") ", action_text)
+
+
+# ==============================================================================
+# DELEGATED STRUCTURAL SUB-FUNCTIONS
+# ==============================================================================
+
+## Inspects a target callable reference to safely extract its executable label format string
+func _get_callable_action_text(callable: Callable) -> String:
+	if callable.is_custom():
+		return "will run an: [Anonymous Lambda Function]"
+	return str("will run method: .", callable.get_method(), "()")
+
+
+## Locates the script location path and filename associated with a target listener object
+func _get_receiver_script_info(receiver: Object, callable: Callable, show_line: bool) -> String:
+	if not receiver or not receiver.has_method("get_script"):
+		return "Unknown Script"
+		
+	var script = receiver.get_script()
+	if not (script is Script):
+		return "Unknown Script"
+		
+	var script_path = script.resource_path.get_file()
+	
+	if callable.is_custom():
+		return script_path
+		
+	if show_line:
+		var line_num = _find_method_line_in_script(script, callable.get_method())
+		if line_num > 0:
+			return str(script_path, " -> line ", line_num)
+			
+	return script_path
+
+
+## Parses reflection arrays or raw source lines to pinpoint exactly what line a callback method starts on
+func _find_method_line_in_script(script: Script, method_name: String) -> int:
+	for source_loc in script.get_script_method_list():
+		if source_loc.name == method_name and source_loc.has("line"):
+			return source_loc["line"]
+				
+	var source_code = script.source_code
+	if not source_code.is_empty():
+		var lines = source_code.split("\n")
+		var target_pattern = "func " + method_name
+		for i in range(lines.size()):
+			if lines[i].contains(target_pattern):
+				return i + 1
+	return -1
+
+
+--------------------------------------------------------------------
+#grid.gd
+extends Node3D
+class_name Grid
+
+# Grid Configuration
+const GRID_WIDTH: int = 15
+const GRID_DEPTH: int = 15
+const CELL_SIZE: float = 2.0
+
+# Layer Colors for Placed Blocks (0 = Dark, 3 = White)
+const LAYER_COLORS = [
+	Color8(64, 64, 64),     # Layer 0: Dark Grey
+	Color8(127, 127, 127),   # Layer 1: Grey
+	Color8(192, 192, 192),   # Layer 2: Light Grey
+	Color8(255, 255, 255)    # Layer 3: White
+]
+
+const TILES_NODE_NAME : String = "Tiles"
+
+# Shared center point for cameras to focus on
+var center: Vector3 = Vector3(GRID_WIDTH, 0, GRID_DEPTH) * CELL_SIZE / 2.0
+
+# Core Data Matrices
+var grid_matrix: Array = []
+var visual_matrix: Array = [] # Tracks arrays of instantiated MeshInstance3D nodes per cell
+
+# Dynamic Sub-Container for Scene Tree Tidiness
+var tiles_container: Node3D
+
+var shared_box_mesh: BoxMesh
+var layer_materials: Array[StandardMaterial3D] = []
+var _outline_mat: StandardMaterial3D
+
+var _grid_overlay_instance: MeshInstance3D
+var _thick_line_material: StandardMaterial3D
+var _thin_dotted_material: StandardMaterial3D
+
+enum LineType { THICK, THIN_DASHED }
+
+func _ready() -> void:
+	_initialize_containers()
+	_initialize_matrix_database()
+	_precalculate_resources()
+	
+	# Connect to the global event bus to listen for placement requests from any piece
+	EventBus.placement_requested.connect(_on_placement_requested)
+
+## Creates a clean dedicated node in the scene tree to keep meshes clustered away from logic nodes
+func _initialize_containers() -> void:
+	if has_node(TILES_NODE_NAME):
+		var old_container = get_node(TILES_NODE_NAME)
+		remove_child(old_container)
+		old_container.queue_free()
+	
+	tiles_container = Node3D.new()
+	tiles_container.name = TILES_NODE_NAME
+	add_child(tiles_container)
+
+## Allocates memory for both tracking databases matched to the grid dimensions
+func _initialize_matrix_database() -> void:
+	grid_matrix.clear()
+	visual_matrix.clear()
+	for x in range(GRID_WIDTH):
+		var row: Array[int] = []
+		var vis_row: Array = []
+		row.resize(GRID_DEPTH)
+		row.fill(0)
+		vis_row.resize(GRID_DEPTH)
+		for z in range(GRID_DEPTH):
+			vis_row[z] = [] # Allocates an array pointer inside each coordinate cell
+		grid_matrix.append(row)
+		visual_matrix.append(vis_row)
+
+## Creates reusable mesh shapes and material variations for runtime drawing
+func _precalculate_resources() -> void:
+	shared_box_mesh = BoxMesh.new()
+	shared_box_mesh.size = Vector3(CELL_SIZE, CELL_SIZE, CELL_SIZE)
+	
+	_outline_mat = StandardMaterial3D.new()
+	_outline_mat.albedo_color = Color.BLACK
+	_outline_mat.cull_mode = BaseMaterial3D.CULL_FRONT
+	_outline_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_outline_mat.grow = true
+	_outline_mat.grow_amount = 0.1
+	
+	for color in LAYER_COLORS:
+		var mat = StandardMaterial3D.new()
+		mat.albedo_color = color
+		mat.next_pass = _outline_mat
+		layer_materials.append(mat)
+
+	_thick_line_material = StandardMaterial3D.new()
+	_thick_line_material.albedo_color = Color.BLACK
+	_thick_line_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	
+	_thin_dotted_material = StandardMaterial3D.new()
+	_thin_dotted_material.albedo_color = Color(0.1, 0.1, 0.1, 0.4) 
+	_thin_dotted_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+
+## Returns the current layer height stored at the specified coordinates
+func get_height_at(x: int, z: int) -> int:
+	if x >= 0 and x < GRID_WIDTH and z >= 0 and z < GRID_DEPTH:
+		return grid_matrix[x][z]
+	return -1
+
+## Assigns a new layer height integer to the specified coordinates
+func set_height_at(x: int, z: int, new_height: int) -> void:
+	if x >= 0 and x < GRID_WIDTH and z >= 0 and z < GRID_DEPTH:
+		grid_matrix[x][z] = new_height
+
+## Cleans up all visual elements located inside a single cell database coordinate
+func clear_visual_tile_at(x: int, z: int) -> void:
+	if x >= 0 and x < GRID_WIDTH and z >= 0 and z < GRID_DEPTH:
+		for mesh in visual_matrix[x][z]:
+			if is_instance_valid(mesh):
+				mesh.queue_free()
+		visual_matrix[x][z] = []
+
+## Spawns physical blocks and nests them directly inside the clean container node
+func spawn_visual_tile(x: int, target_height: int, z: int) -> void:
+	# Purge old instances at this spot first to prevent double-stacking memory leak bugs
+	clear_visual_tile_at(x, z)
+	
+	var offset = CELL_SIZE / 2.0
+	var world_x = (x * CELL_SIZE) + offset
+	var world_z = (z * CELL_SIZE) + offset
+	
+	for h in range(target_height + 1):
+		var world_y = (h * CELL_SIZE) + offset
+		var spawn_position = Vector3(world_x, world_y, world_z)
+		
+		var tile_mesh = MeshInstance3D.new()
+		tile_mesh.mesh = shared_box_mesh
+		
+		var mat_idx = clampi(h, 0, layer_materials.size() - 1)
+		tile_mesh.material_override = layer_materials[mat_idx]
+		
+		# Kept safe inside our nested container out of the way of logic trackers
+		tiles_container.add_child(tile_mesh)
+		tile_mesh.global_position = spawn_position
+		
+		_attach_physics_collision(tile_mesh)
+		
+		# Cache the node instance reference inside our visual database row
+		visual_matrix[x][z].append(tile_mesh)
+
+## Intercepts decoupled placement request signals from anywhere in the game world
+func _on_placement_requested(map_pos: Vector2i, size: Vector3i) -> void:
+	var start_height = get_height_at(map_pos.x, map_pos.y)
+	if start_height == -1: return # Out of bounds safety safety escape
+	
+	# Update the structural heights over the requested footprint dimensions
+	for x in range(map_pos.x, map_pos.x + size.x):
+		for z in range(map_pos.y, map_pos.y + size.z):
+			var current_h = get_height_at(x, z)
+			set_height_at(x, z, current_h + size.y)
+			
+	# Process and reconstruct visual columns cleanly
+	for x in range(map_pos.x, map_pos.x + size.x):
+		for z in range(map_pos.y, map_pos.y + size.z):
+			var new_height = get_height_at(x, z)
+			spawn_visual_tile(x, new_height, z)
+			
+	update_grid_line_network()
+	
+	var final_coords = Vector3i(map_pos.x, start_height + size.y, map_pos.y)
+	EventBus.block_placed.emit(final_coords, size, true)
+
+## Generates and links structural collision boxes to a mesh instance
+func _attach_physics_collision(parent_mesh: MeshInstance3D) -> void:
+	var static_body = StaticBody3D.new()
+	var collision_shape = CollisionShape3D.new()
+	var box_shape = BoxShape3D.new()
+	
+	box_shape.size = shared_box_mesh.size
+	collision_shape.shape = box_shape
+	
+	static_body.add_child(collision_shape)
+	parent_mesh.add_child(static_body)
+
+## Clears previous instances and builds a fresh, composite line map overlay
+func update_grid_line_network() -> void:
+	if is_instance_valid(_grid_overlay_instance):
+		_grid_overlay_instance.queue_free()
+
+	var total_mesh = ImmediateMesh.new()
+	
+	total_mesh.surface_begin(Mesh.PRIMITIVE_LINES, _thick_line_material)
+	_scan_grid_and_draw(total_mesh, LineType.THICK)
+	total_mesh.surface_end()
+	
+	total_mesh.surface_begin(Mesh.PRIMITIVE_LINES, _thin_dotted_material)
+	_scan_grid_and_draw(total_mesh, LineType.THIN_DASHED)
+	total_mesh.surface_end()
+	
+	_grid_overlay_instance = MeshInstance3D.new()
+	_grid_overlay_instance.mesh = total_mesh
+	_grid_overlay_instance.layers = 1 << 19 
+	add_child(_grid_overlay_instance)
+
+## Evaluates the map dimensions to draw vertical or horizontal cell separators
+func _scan_grid_and_draw(mesh: ImmediateMesh, line_filter: LineType) -> void:
+	for x in range(GRID_WIDTH + 1):
+		for z in range(GRID_DEPTH + 1):
+			var v_start_x = x * CELL_SIZE
+			var v_start_z = z * CELL_SIZE
+			var v_next_x = (x + 1) * CELL_SIZE
+			var v_next_z = (z + 1) * CELL_SIZE
+			
+			if z < GRID_DEPTH:
+				var left_h = get_height_at(x - 1, z) if x > 0 else -1
+				var right_h = get_height_at(x, z) if x < GRID_WIDTH else -1
+				_process_edge_drawing(mesh, line_filter, left_h, right_h, Vector3(v_start_x, 0, v_start_z), Vector3(v_start_x, 0, v_next_z), x == 0 or x == GRID_WIDTH)
+
+			if x < GRID_WIDTH:
+				var top_h = get_height_at(x, z - 1) if z > 0 else -1
+				var bot_h = get_height_at(x, z) if z < GRID_DEPTH else -1
+				_process_edge_drawing(mesh, line_filter, top_h, bot_h, Vector3(v_start_x, 0, v_start_z), Vector3(v_next_x, 0, v_start_z), z == 0 or z == GRID_DEPTH)
+
+## Filters matching boundaries to determine if they receive a solid or dash styling
+func _process_edge_drawing(mesh: ImmediateMesh, line_filter: LineType, h1: int, h2: int, start_pos: Vector3, end_pos: Vector3, is_outer_map_edge: bool) -> void:
+	var heights_differ = (h1 != h2)
+	var highest_tier = max(h1, h2)
+	
+	var py = ((highest_tier + 1) * CELL_SIZE) + 0.01
+	start_pos.y = py
+	end_pos.y = py
+	
+	match line_filter:
+		LineType.THICK:
+			if heights_differ:
+				_draw_line_style(mesh, LineType.THICK, start_pos, end_pos)
+		LineType.THIN_DASHED:
+			if not heights_differ and not is_outer_map_edge:
+				_draw_line_style(mesh, LineType.THIN_DASHED, start_pos, end_pos)
+
+## Appends primitive vector points directly into the active drawing surface buffer
+func _draw_line_style(mesh: ImmediateMesh, type: LineType, start: Vector3, end: Vector3) -> void:
+	match type:
+		LineType.THICK:
+			mesh.surface_add_vertex(start)
+			mesh.surface_add_vertex(end)
+		LineType.THIN_DASHED:
+			var segments = 4 
+			var delta_step = (end - start) / segments
+			for i in range(segments):
+				if i % 2 == 0:
+					mesh.surface_add_vertex(start + (delta_step * i))
+					mesh.surface_add_vertex(start + (delta_step * (i + 1)))
+
+
+--------------------------------------------------------------------
+#map_generator.gd
+extends Node
+class_name MapGenerator
+
+enum Mode { AUTO, TOPOLOGY, PLAYER }
+@export var generation_mode: Mode = Mode.AUTO
+@export var topology_map: Texture2D
+
+@onready var grid: Grid = get_parent()
+
+func _ready() -> void:
+	await grid.ready
+	
+	generate_map()
+
+func generate_map() -> void:
+	match generation_mode:
+		Mode.AUTO: _generate_noise_terrain()
+		Mode.TOPOLOGY: _generate_from_topology_colors()
+		Mode.PLAYER: _generate_flat_ground()
+			
+	grid.update_grid_line_network()
+
+## Creates a uniform baseline terrain setting all heights to layer zero
+func _generate_flat_ground() -> void:
+	for x in range(grid.GRID_WIDTH):
+		for z in range(grid.GRID_DEPTH):
+			grid.set_height_at(x, z, 0)
+			grid.spawn_visual_tile(x, 0, z)
+
+## Uses a math noise module to output dynamic altitude variations across the map
+func _generate_noise_terrain() -> void:
+	var noise = FastNoiseLite.new()
+	noise.seed = randi()
+	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	noise.frequency = 0.15 
+	
+	for x in range(grid.GRID_WIDTH):
+		for z in range(grid.GRID_DEPTH):
+			var raw_noise = noise.get_noise_2d(float(x), float(z))
+			var normalized_noise = (raw_noise + 1.0) / 2.0
+			var height = clampi(int(floor(normalized_noise * 4.0)), 0, 3)
+			
+			grid.set_height_at(x, z, height)
+			grid.spawn_visual_tile(x, height, z)
+
+## Evaluates pixel channels from an input texture to derive local elevation layers
+func _generate_from_topology_colors() -> void:
+	if not topology_map:
+		_generate_flat_ground()
+		return
+		
+	var img: Image = topology_map.get_image()
+	var chunk_w = float(img.get_width()) / grid.GRID_WIDTH
+	var chunk_h = float(img.get_height()) / grid.GRID_DEPTH
+	
+	for gx in range(grid.GRID_WIDTH):
+		for gz in range(grid.GRID_DEPTH):
+			var start_x = int(gx * chunk_w)
+			var start_y = int(gz * chunk_h)
+			var c = img.get_pixel(start_x, start_y)
+			var height = 0
+			
+			if c.g > c.r and c.g > 0.4: height = 0
+			elif c.g > 0.5 and c.r > 0.5: height = 1
+			elif c.r > c.g and c.g > 0.3: height = 2
+			else: height = 3
+			
+			grid.set_height_at(gx, gz, height)
+			grid.spawn_visual_tile(gx, height, gz)
+
+
+--------------------------------------------------------------------
+#piece_placer.gd
+extends Node
+class_name PiecePlacer
+
+var current_grid_pos: Vector3i = Vector3i(-1, -1, -1)
+var current_size: Vector3i = Vector3i(0, 0, 0)
+var current_placement_valid: bool = false
+
+func _ready() -> void:
+	EventBus.preview_updated.connect(_on_preview_updated)
+
+## Keeps state updated with positioning variables received from the cursor tracking systems
+func _on_preview_updated(grid_pos: Vector3i, size: Vector3i, is_valid: bool) -> void:
+	current_grid_pos = grid_pos
+	current_size = size
+	current_placement_valid = is_valid
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("place_piece"):
+		_try_place_piece_at_cursor()
+
+## Verifies active safety variables before committing structures via the global EventBus
+func _try_place_piece_at_cursor() -> void:
+	if current_grid_pos.x == -1: return
+	if not current_placement_valid:
+		_handle_placement_failure()
+		return
+		
+	# Decoupled emission! Grid hears this and builds everything.
+	var request_coord = Vector2i(current_grid_pos.x, current_grid_pos.z)
+	EventBus.placement_requested.emit(request_coord, current_size)
+
+## Emits notification detailing a rejected action state back to core buses
+func _handle_placement_failure() -> void:
+	var projected_height = current_grid_pos.y + current_size.y
+	var fail_coords = Vector3i(current_grid_pos.x, projected_height, current_grid_pos.z)
+	EventBus.block_placed.emit(fail_coords, current_size, false)
+
+
+--------------------------------------------------------------------
+#world.gd
+extends Node3D
+
+@export var rotation_speed : float = 0.01
+
+@export_group("Nodes")
+@export var cam3D_view2D : Camera3D
+@export var cam3D_view3D : Camera3D
+@export var grid : Grid
+
+@export_group("Orthogonal Settings")
+## Base uniform space around the grid edges so it's not crammed against the screen boundaries.
+@export var grid_padding : float = 2.0
+
+@export_subgroup("Extra 2D Grid Padding", "padding")
+## Additional padding added on top of the base grid_padding.
+@export var padding_up : float 
+@export var padding_down : float 
+@export var padding_left : float 
+@export var padding_right : float 
+
+var _cam3D_offset = Vector3(0.0, 20.0, 27.0)
+var _cam2D_offset = Vector3(0, 30, 0)
+
+var _current_cam : Camera3D:
+	set(value):
+		_current_cam = value
+		EventBus.camera_changed.emit(value)
+
+# Called when the node enters the scene tree for the first time.
+func _ready():
+	_setup_cams(grid.center)
+	swap_cameras(cam3D_view3D)
+
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+func _process(_delta):
+	_handle_keyboard_rotation(_delta)
+
+
+func _input(event: InputEvent) -> void:
+	if event.is_action_pressed("change_view"):
+		swap_cameras()
+		
+	_handle_mouse_rotation(event)
+
+
+func swap_cameras(cam : Camera3D = null) -> void:
+	if cam:
+		cam.make_current()
+		_current_cam = cam
+		return
+	
+	if cam3D_view3D.current:
+		cam3D_view2D.make_current()
+		_current_cam = cam3D_view2D
+		print("Swapped to Flat 2D View!")
+	else:
+		cam3D_view3D.make_current()
+		_current_cam = cam3D_view3D
+		print("Swapped to Perspective 3D View!")
+
+
+# ==============================================================================
+# CAMERA ROTATION DETECTORS
+# ==============================================================================
+
+func _handle_mouse_rotation(event: InputEvent) -> void:
+	if not cam3D_view3D.current:
+		return
+
+	# Drag-rotate: Mouse moves while the action button is held down
+	if event is InputEventMouseMotion and Input.is_action_pressed("rotate_cam"):
+		# Directly rotate the offset vector on the Y-axis
+		var y_rotation_angle = -event.relative.x * rotation_speed
+		_cam3D_offset = _cam3D_offset.rotated(Vector3.UP, y_rotation_angle)
+		
+		_update_perspective_position(grid.center)
+
+
+func _handle_keyboard_rotation(delta: float) -> void:
+	if not cam3D_view3D.current or Input.is_action_pressed("rotate_cam"):
+		return
+
+	# Rebindable keyboard fallback (e.g. Left/Right Arrow keys or A/D)
+	var rotation_input = Input.get_axis("rotate_left", "rotate_right")
+	if rotation_input != 0.0:
+		# Use a standard multiplier scale (e.g. 2.0 radians) for smooth key transitions
+		var keyboard_speed_multiplier = 2.0
+		var y_rotation_angle = rotation_input * keyboard_speed_multiplier * delta
+		_cam3D_offset = _cam3D_offset.rotated(Vector3.UP, y_rotation_angle)
+		
+		_update_perspective_position(grid.center)
+
+
+func _update_perspective_position(target_center: Vector3) -> void:
+	cam3D_view3D.global_position = target_center + _cam3D_offset
+	cam3D_view3D.look_at(target_center, Vector3.UP)
+
+
+# ==============================================================================
+# CAMERA INITIAL SETUP
+# ==============================================================================
+
+func _setup_topdown_camera(target_center: Vector3) -> void:
+	# 1. Force the camera to Orthogonal projection mode via code
+	cam3D_view2D.projection = Camera3D.PROJECTION_ORTHOGONAL
+	
+	# Position the camera directly above the center point
+	cam3D_view2D.global_position = target_center + _cam2D_offset
+	
+	# Force the camera to point straight down at the center point
+	cam3D_view2D.look_at(target_center, Vector3.FORWARD)
+	
+	# 2. Automatically adjust the camera size to fit the grid bounding box
+	_fit_orthogonal_camera_to_grid()
+
+func _fit_orthogonal_camera_to_grid() -> void:
+	if not grid:
+		return
+		
+	# Calculate the base absolute world size of your grid using your constants
+	var base_width : float = grid.GRID_WIDTH * grid.CELL_SIZE
+	var base_depth : float = grid.GRID_DEPTH * grid.CELL_SIZE
+	
+	# Combine the uniform base grid_padding with your extra edge paddings
+	var total_left_padding : float = grid_padding + padding_left
+	var total_right_padding : float = grid_padding + padding_right
+	var total_up_padding : float = grid_padding + padding_up
+	var total_down_padding : float = grid_padding + padding_down
+	
+	# Calculate total sizes incorporating all padding factors
+	var total_padded_width : float = base_width + total_left_padding + total_right_padding
+	var total_padded_depth : float = base_depth + total_up_padding + total_down_padding
+	
+	# Get the aspect ratio of the player's screen viewport (width / height)
+	var aspect_ratio = get_viewport().get_visible_rect().size.aspect()
+	
+	# Determine vertical screen sizing metrics based on dimension restrictions
+	var size_based_on_width = total_padded_width / aspect_ratio
+	var size_based_on_depth = total_padded_depth
+	
+	# Set the orthogonal camera size to the larger requirement
+	cam3D_view2D.size = max(size_based_on_width, size_based_on_depth)
+	
+	# Calculate centering offset adjustments (only shifts if left/right or up/down are uneven)
+	var horizontal_offset = (total_right_padding - total_left_padding) * 0.5
+	var vertical_offset = (total_down_padding - total_up_padding) * 0.5
+	cam3D_view2D.global_position += Vector3(horizontal_offset, 0, vertical_offset)
+
+func _setup_perspective_camera(target_center: Vector3) -> void:
+	_update_perspective_position(target_center)
+
+
+func _setup_cams(target_center : Vector3) -> void:
+	_setup_perspective_camera(target_center)
+	_setup_topdown_camera(target_center)
