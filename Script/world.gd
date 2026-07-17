@@ -8,8 +8,15 @@ extends Node3D
 @export var grid : Grid
 
 @export_group("Orthogonal Settings")
-## Extra space around the grid edges so it's not crammed against the screen boundaries.
-@export var grid_padding : float = 2.0 
+## Base uniform space around the grid edges so it's not crammed against the screen boundaries.
+@export var grid_padding : float = 2.0
+
+@export_subgroup("Extra 2D Grid Padding", "padding")
+## Additional padding added on top of the base grid_padding.
+@export var padding_up : float 
+@export var padding_down : float 
+@export var padding_left : float 
+@export var padding_right : float 
 
 var _cam3D_offset = Vector3(0.0, 20.0, 27.0)
 var _cam2D_offset = Vector3(0, 30, 0)
@@ -98,32 +105,47 @@ func _setup_topdown_camera(target_center: Vector3) -> void:
 	# 1. Force the camera to Orthogonal projection mode via code
 	cam3D_view2D.projection = Camera3D.PROJECTION_ORTHOGONAL
 	
-	# 2. Automatically adjust the camera size to fit the grid bounding box
-	_fit_orthogonal_camera_to_grid()
-	
 	# Position the camera directly above the center point
 	cam3D_view2D.global_position = target_center + _cam2D_offset
 	
 	# Force the camera to point straight down at the center point
 	cam3D_view2D.look_at(target_center, Vector3.FORWARD)
+	
+	# 2. Automatically adjust the camera size to fit the grid bounding box
+	_fit_orthogonal_camera_to_grid()
 
 func _fit_orthogonal_camera_to_grid() -> void:
 	if not grid:
 		return
 		
-	# Calculate the absolute world size of your grid using your constants
-	var grid_width : float = grid.GRID_WIDTH * grid.CELL_SIZE
-	var grid_depth : float = grid.GRID_DEPTH * grid.CELL_SIZE
+	# Calculate the base absolute world size of your grid using your constants
+	var base_width : float = grid.GRID_WIDTH * grid.CELL_SIZE
+	var base_depth : float = grid.GRID_DEPTH * grid.CELL_SIZE
 	
-	# Get the aspect ratio of the player's screen viewport
+	# Combine the uniform base grid_padding with your extra edge paddings
+	var total_left_padding : float = grid_padding + padding_left
+	var total_right_padding : float = grid_padding + padding_right
+	var total_up_padding : float = grid_padding + padding_up
+	var total_down_padding : float = grid_padding + padding_down
+	
+	# Calculate total sizes incorporating all padding factors
+	var total_padded_width : float = base_width + total_left_padding + total_right_padding
+	var total_padded_depth : float = base_depth + total_up_padding + total_down_padding
+	
+	# Get the aspect ratio of the player's screen viewport (width / height)
 	var aspect_ratio = get_viewport().get_visible_rect().size.aspect()
 	
-	# Determine if the width or the depth dictates how zoomed out we need to be
-	var size_based_on_width = grid_width / aspect_ratio
-	var size_based_on_depth = grid_depth
+	# Determine vertical screen sizing metrics based on dimension restrictions
+	var size_based_on_width = total_padded_width / aspect_ratio
+	var size_based_on_depth = total_padded_depth
 	
-	# Set the orthogonal camera size to the larger requirement, plus your inspector padding
-	cam3D_view2D.size = max(size_based_on_width, size_based_on_depth) + grid_padding
+	# Set the orthogonal camera size to the larger requirement
+	cam3D_view2D.size = max(size_based_on_width, size_based_on_depth)
+	
+	# Calculate centering offset adjustments (only shifts if left/right or up/down are uneven)
+	var horizontal_offset = (total_right_padding - total_left_padding) * 0.5
+	var vertical_offset = (total_down_padding - total_up_padding) * 0.5
+	cam3D_view2D.global_position += Vector3(horizontal_offset, 0, vertical_offset)
 
 func _setup_perspective_camera(target_center: Vector3) -> void:
 	_update_perspective_position(target_center)
