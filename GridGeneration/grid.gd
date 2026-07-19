@@ -1,6 +1,9 @@
 extends Node3D
 class_name Grid
 
+enum PlayMode  { MAP_GENERATION, MAP_MODIFIE, PLAY }
+enum BuildMode { ADD, REMOVE }
+
 # Grid Configuration
 const GRID_WIDTH: int = 15
 const GRID_DEPTH: int = 15
