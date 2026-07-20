@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3 uid="uid://cp64sr6bfbmps"]
+[gd_scene load_steps=7 format=3 uid="uid://cp64sr6bfbmps"]
 
 [ext_resource type="Script" path="res://GridGeneration/grid.gd" id="1_nx7an"]
 [ext_resource type="Script" path="res://GridGeneration/map_generator.gd" id="2_l4sc6"]
 [ext_resource type="Script" path="res://GridGeneration/block_preview.gd" id="3_tshta"]
 [ext_resource type="Script" path="res://GridGeneration/piece_placer.gd" id="4_e3r4k"]
 [ext_resource type="Script" path="res://GridGeneration/piece_remover.gd" id="5_wg5x8"]
+[ext_resource type="Script" path="res://Script/select_cursor.gd" id="6_hg2b7"]
 
 [node name="Grid" type="Node3D"]
 script = ExtResource("1_nx7an")
@@ -20,3 +21,6 @@ script = ExtResource("4_e3r4k")
 
 [node name="PieceRemover" type="Node" parent="."]
 script = ExtResource("5_wg5x8")
+
+[node name="SelectCursor" type="Node3D" parent="."]
+script = ExtResource("6_hg2b7")

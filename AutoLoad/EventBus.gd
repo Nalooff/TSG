@@ -18,6 +18,7 @@ extends Node
 # ==============================================================================
 signal camera_changed(cam: Camera3D)
 signal build_mode_changed(new_mode: Grid.BuildMode)
+signal tile_hovered(tile_info: Dictionary) # Dictionary: { "grid_pos": Vector2i, "normal": Vector3, "position": Vector3, "collider": Object }
 signal preview_updated(grid_pos: Vector3i, size: Vector3i, is_valid: bool)
 signal placement_requested(grid_2d_pos: Vector2i, size: Vector3i)
 signal block_placed(grid_position: Vector3i, size: Vector3i, is_successful: bool)

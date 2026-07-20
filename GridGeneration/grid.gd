@@ -11,10 +11,10 @@ const CELL_SIZE: float = 2.0
 
 # Layer Colors for Placed Blocks (0 = Dark, 3 = White)
 const LAYER_COLORS = [
-	Color8(64, 64, 64),     # Layer 0: Dark Grey
-	Color8(127, 127, 127),   # Layer 1: Grey
-	Color8(192, 192, 192),   # Layer 2: Light Grey
-	Color8(255, 255, 255)    # Layer 3: White
+	Color8(64, 64, 64),    # Layer 0: Dark Grey
+	Color8(127, 127, 127),  # Layer 1: Grey
+	Color8(192, 192, 192),  # Layer 2: Light Grey
+	Color8(255, 255, 255)   # Layer 3: White
 ]
 
 const TILES_NODE_NAME : String = "Tiles"
@@ -24,12 +24,13 @@ var center: Vector3 = Vector3(GRID_WIDTH, 0, GRID_DEPTH) * CELL_SIZE / 2.0
 
 # Core Data Matrices
 var grid_matrix: Array = []
-var visual_matrix: Array = [] # Tracks arrays of instantiated MeshInstance3D nodes per cell
+var visual_matrix: Array = [] # Tracks arrays of Tile nodes per cell
 
 # Dynamic Sub-Container for Scene Tree Tidiness
 var tiles_container: Node3D
 
 var shared_box_mesh: BoxMesh
+var shared_box_shape: BoxShape3D
 var layer_materials: Array[StandardMaterial3D] = []
 var _outline_mat: StandardMaterial3D
 
@@ -44,7 +45,7 @@ func _ready() -> void:
 	_initialize_matrix_database()
 	_precalculate_resources()
 	
-	# Connect to the global event bus to listen for placement requests from any piece
+	# Connect to the global event bus to listen for placement requests
 	EventBus.placement_requested.connect(_on_placement_requested)
 
 ## Creates a clean dedicated node in the scene tree to keep meshes clustered away from logic nodes
@@ -73,10 +74,13 @@ func _initialize_matrix_database() -> void:
 		grid_matrix.append(row)
 		visual_matrix.append(vis_row)
 
-## Creates reusable mesh shapes and material variations for runtime drawing
+## Creates reusable mesh shapes, collision shapes, and material variations
 func _precalculate_resources() -> void:
 	shared_box_mesh = BoxMesh.new()
 	shared_box_mesh.size = Vector3(CELL_SIZE, CELL_SIZE, CELL_SIZE)
+
+	shared_box_shape = BoxShape3D.new()
+	shared_box_shape.size = shared_box_mesh.size
 	
 	_outline_mat = StandardMaterial3D.new()
 	_outline_mat.albedo_color = Color.BLACK
@@ -113,14 +117,14 @@ func set_height_at(x: int, z: int, new_height: int) -> void:
 ## Cleans up all visual elements located inside a single cell database coordinate
 func clear_visual_tile_at(x: int, z: int) -> void:
 	if x >= 0 and x < GRID_WIDTH and z >= 0 and z < GRID_DEPTH:
-		for mesh in visual_matrix[x][z]:
-			if is_instance_valid(mesh):
-				mesh.queue_free()
+		for tile_node in visual_matrix[x][z]:
+			if is_instance_valid(tile_node):
+				tile_node.queue_free()
 		visual_matrix[x][z] = []
 
-## Spawns physical blocks and nests them directly inside the clean container node
+## Spawns physical Tile instances and nests them directly inside the clean container node
 func spawn_visual_tile(x: int, target_height: int, z: int) -> void:
-	# Purge old instances at this spot first to prevent double-stacking memory leak bugs
+	# Purge old instances at this spot first to prevent double-stacking bugs
 	clear_visual_tile_at(x, z)
 	
 	var offset = CELL_SIZE / 2.0
@@ -131,25 +135,34 @@ func spawn_visual_tile(x: int, target_height: int, z: int) -> void:
 		var world_y = (h * CELL_SIZE) + offset
 		var spawn_position = Vector3(world_x, world_y, world_z)
 		
+		# 1. Instantiate dedicated Tile node (StaticBody3D)
+		var tile = Tile.new()
+		tile.grid_pos = Vector2i(x, z)
+		tile.height_level = h
+		
+		# 2. Attach MeshInstance3D
 		var tile_mesh = MeshInstance3D.new()
 		tile_mesh.mesh = shared_box_mesh
-		
 		var mat_idx = clampi(h, 0, layer_materials.size() - 1)
 		tile_mesh.material_override = layer_materials[mat_idx]
-		
-		# Kept safe inside our nested container out of the way of logic trackers
-		tiles_container.add_child(tile_mesh)
-		tile_mesh.global_position = spawn_position
-		
-		_attach_physics_collision(tile_mesh)
-		
-		# Cache the node instance reference inside our visual database row
-		visual_matrix[x][z].append(tile_mesh)
+		tile.add_child(tile_mesh)
 
-## Intercepts decoupled placement request signals from anywhere in the game world
+		# 3. Attach CollisionShape3D
+		var collision_shape = CollisionShape3D.new()
+		collision_shape.shape = shared_box_shape
+		tile.add_child(collision_shape)
+		
+		# 4. Add to scene tree & position
+		tiles_container.add_child(tile)
+		tile.global_position = spawn_position
+		
+		# Cache the Tile instance reference inside our visual database row
+		visual_matrix[x][z].append(tile)
+
+## Intercepts placement request signals from anywhere in the game world
 func _on_placement_requested(map_pos: Vector2i, size: Vector3i) -> void:
 	var start_height = get_height_at(map_pos.x, map_pos.y)
-	if start_height == -1: return # Out of bounds safety safety escape
+	if start_height == -1: return # Out of bounds safety escape
 	
 	# Update the structural heights over the requested footprint dimensions
 	for x in range(map_pos.x, map_pos.x + size.x):
@@ -167,18 +180,6 @@ func _on_placement_requested(map_pos: Vector2i, size: Vector3i) -> void:
 	
 	var final_coords = Vector3i(map_pos.x, start_height + size.y, map_pos.y)
 	EventBus.block_placed.emit(final_coords, size, true)
-
-## Generates and links structural collision boxes to a mesh instance
-func _attach_physics_collision(parent_mesh: MeshInstance3D) -> void:
-	var static_body = StaticBody3D.new()
-	var collision_shape = CollisionShape3D.new()
-	var box_shape = BoxShape3D.new()
-	
-	box_shape.size = shared_box_mesh.size
-	collision_shape.shape = box_shape
-	
-	static_body.add_child(collision_shape)
-	parent_mesh.add_child(static_body)
 
 ## Clears previous instances and builds a fresh, composite line map overlay
 func update_grid_line_network() -> void:
