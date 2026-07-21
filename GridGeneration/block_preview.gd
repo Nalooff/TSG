@@ -163,7 +163,7 @@ func _evaluate_placement_rules(structural_data: Dictionary) -> bool:
 		return structural_data["highest_tier"] > 0
 		
 	var perfect_flat_foundation = structural_data["is_flat"]
-	var height_limit_exceeded = (structural_data["highest_tier"] + preview_size.y) > 3
+	var height_limit_exceeded = (structural_data["highest_tier"] + preview_size.y) > GlobalData.GRID_HEIGHT - 1
 	return perfect_flat_foundation and not height_limit_exceeded
 
 func _calculate_removal_tier_bounds(highest_tier: int) -> Vector2i:
@@ -296,7 +296,7 @@ func _hide_blocks_within_volume(gx: int, gz: int, bottom_tier: int, top_tier: in
 			_hide_cell_column_segments(lx, lz, bottom_tier, top_tier)
 
 func _hide_cell_column_segments(lx: int, lz: int, bottom: int, top: int) -> void:
-	if lx < 0 or lx >= grid.GRID_WIDTH or lz < 0 or lz >= grid.GRID_DEPTH: return
+	if lx < 0 or lx >= GlobalData.GRID_WIDTH or lz < 0 or lz >= GlobalData.GRID_DEPTH: return
 	
 	var cell_meshes = grid.visual_matrix[lx][lz]
 	for h in range(cell_meshes.size()):

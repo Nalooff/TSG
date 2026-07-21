@@ -1,26 +1,18 @@
 extends Node3D
 class_name Grid
 
-enum PlayMode  { MAP_GENERATION, MAP_MODIFIE, PLAY }
 enum BuildMode { ADD, REMOVE }
 
 # Grid Configuration
-const GRID_WIDTH: int = 15
-const GRID_DEPTH: int = 15
-const CELL_SIZE: float = 2.0
+const GRID_WIDTH: int = GlobalData.GRID_WIDTH
+const GRID_DEPTH: int = GlobalData.GRID_DEPTH
+const GRID_CENTER : Vector3 = GlobalData.GRID_CENTER
+const CELL_SIZE: float = GlobalData.CELL_SIZE
 
-# Layer Colors for Placed Blocks (0 = Dark, 3 = White)
-const LAYER_COLORS = [
-	Color8(64, 64, 64),    # Layer 0: Dark Grey
-	Color8(127, 127, 127),  # Layer 1: Grey
-	Color8(192, 192, 192),  # Layer 2: Light Grey
-	Color8(255, 255, 255)   # Layer 3: White
-]
+
+const GRID_LAYER_COLORS = GlobalData.GRID_LAYER_COLORS
 
 const TILES_NODE_NAME : String = "Tiles"
-
-# Shared center point for cameras to focus on
-var center: Vector3 = Vector3(GRID_WIDTH, 0, GRID_DEPTH) * CELL_SIZE / 2.0
 
 # Core Data Matrices
 var grid_matrix: Array = []
@@ -89,7 +81,7 @@ func _precalculate_resources() -> void:
 	_outline_mat.grow = true
 	_outline_mat.grow_amount = 0.1
 	
-	for color in LAYER_COLORS:
+	for color in GRID_LAYER_COLORS:
 		var mat = StandardMaterial3D.new()
 		mat.albedo_color = color
 		mat.next_pass = _outline_mat
@@ -139,6 +131,8 @@ func spawn_visual_tile(x: int, target_height: int, z: int) -> void:
 		var tile = Tile.new()
 		tile.grid_pos = Vector2i(x, z)
 		tile.height_level = h
+		tile.collision_layer = GlobalData.TILE.COLLISION_LAYER_BITMASK
+		tile.collision_mask = GlobalData.TILE.COLLISION_MASK_BITMASK
 		
 		# 2. Attach MeshInstance3D
 		var tile_mesh = MeshInstance3D.new()
@@ -198,7 +192,7 @@ func update_grid_line_network() -> void:
 	
 	_grid_overlay_instance = MeshInstance3D.new()
 	_grid_overlay_instance.mesh = total_mesh
-	_grid_overlay_instance.layers = 1 << 19 
+	_grid_overlay_instance.layers = GlobalData.CAMERA_2D_LAYER_BITMASK
 	add_child(_grid_overlay_instance)
 
 ## Evaluates the map dimensions to draw vertical or horizontal cell separators

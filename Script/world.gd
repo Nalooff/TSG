@@ -5,7 +5,6 @@ extends Node3D
 @export_group("Nodes")
 @export var cam3D_view2D : Camera3D
 @export var cam3D_view3D : Camera3D
-@export var grid : Grid
 
 @export_group("Orthogonal Settings")
 ## Base uniform space around the grid edges so it's not crammed against the screen boundaries.
@@ -28,7 +27,7 @@ var _current_cam : Camera3D:
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
-	_setup_cams(grid.center)
+	_setup_cams(GlobalData.GRID_CENTER)
 	swap_cameras(cam3D_view3D)
 
 
@@ -74,7 +73,7 @@ func _handle_mouse_rotation(event: InputEvent) -> void:
 		var y_rotation_angle = -event.relative.x * rotation_speed
 		_cam3D_offset = _cam3D_offset.rotated(Vector3.UP, y_rotation_angle)
 		
-		_update_perspective_position(grid.center)
+		_update_perspective_position(GlobalData.GRID_CENTER)
 
 
 func _handle_keyboard_rotation(delta: float) -> void:
@@ -89,7 +88,7 @@ func _handle_keyboard_rotation(delta: float) -> void:
 		var y_rotation_angle = rotation_input * keyboard_speed_multiplier * delta
 		_cam3D_offset = _cam3D_offset.rotated(Vector3.UP, y_rotation_angle)
 		
-		_update_perspective_position(grid.center)
+		_update_perspective_position(GlobalData.GRID_CENTER)
 
 
 func _update_perspective_position(target_center: Vector3) -> void:
@@ -115,12 +114,10 @@ func _setup_topdown_camera(target_center: Vector3) -> void:
 	_fit_orthogonal_camera_to_grid()
 
 func _fit_orthogonal_camera_to_grid() -> void:
-	if not grid:
-		return
 		
 	# Calculate the base absolute world size of your grid using your constants
-	var base_width : float = grid.GRID_WIDTH * grid.CELL_SIZE
-	var base_depth : float = grid.GRID_DEPTH * grid.CELL_SIZE
+	var base_width : float = GlobalData.GRID_WIDTH * GlobalData.CELL_SIZE
+	var base_depth : float = GlobalData.GRID_DEPTH * GlobalData.CELL_SIZE
 	
 	# Combine the uniform base grid_padding with your extra edge paddings
 	var total_left_padding : float = grid_padding + padding_left
@@ -148,6 +145,7 @@ func _fit_orthogonal_camera_to_grid() -> void:
 	cam3D_view2D.global_position += Vector3(horizontal_offset, 0, vertical_offset)
 
 func _setup_perspective_camera(target_center: Vector3) -> void:
+	cam3D_view3D.set_cull_mask_value(GlobalData.CAMERA_2D_LAYER, false)
 	_update_perspective_position(target_center)
 
 

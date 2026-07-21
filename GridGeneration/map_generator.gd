@@ -22,8 +22,8 @@ func generate_map() -> void:
 
 ## Creates a uniform baseline terrain setting all heights to layer zero
 func _generate_flat_ground() -> void:
-	for x in range(grid.GRID_WIDTH):
-		for z in range(grid.GRID_DEPTH):
+	for x in range(GlobalData.GRID_WIDTH):
+		for z in range(GlobalData.GRID_DEPTH):
 			grid.set_height_at(x, z, 0)
 			grid.spawn_visual_tile(x, 0, z)
 
@@ -34,11 +34,11 @@ func _generate_noise_terrain() -> void:
 	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
 	noise.frequency = 0.15 
 	
-	for x in range(grid.GRID_WIDTH):
-		for z in range(grid.GRID_DEPTH):
+	for x in range(GlobalData.GRID_WIDTH):
+		for z in range(GlobalData.GRID_DEPTH):
 			var raw_noise = noise.get_noise_2d(float(x), float(z))
 			var normalized_noise = (raw_noise + 1.0) / 2.0
-			var height = clampi(int(floor(normalized_noise * 4.0)), 0, 3)
+			var height = clampi(int(floor(normalized_noise * GlobalData.GRID_HEIGHT)), 0, 3)
 			
 			grid.set_height_at(x, z, height)
 			grid.spawn_visual_tile(x, height, z)
@@ -50,11 +50,11 @@ func _generate_from_topology_colors() -> void:
 		return
 		
 	var img: Image = topology_map.get_image()
-	var chunk_w = float(img.get_width()) / grid.GRID_WIDTH
-	var chunk_h = float(img.get_height()) / grid.GRID_DEPTH
+	var chunk_w = float(img.get_width()) / GlobalData.GRID_WIDTH
+	var chunk_h = float(img.get_height()) / GlobalData.GRID_DEPTH
 	
-	for gx in range(grid.GRID_WIDTH):
-		for gz in range(grid.GRID_DEPTH):
+	for gx in range(GlobalData.GRID_WIDTH):
+		for gz in range(GlobalData.GRID_DEPTH):
 			var start_x = int(gx * chunk_w)
 			var start_y = int(gz * chunk_h)
 			var c = img.get_pixel(start_x, start_y)
