@@ -4,13 +4,13 @@ class_name Grid
 enum BuildMode { ADD, REMOVE }
 
 # Grid Configuration
-const GRID_WIDTH: int = GlobalData.GRID_WIDTH
-const GRID_DEPTH: int = GlobalData.GRID_DEPTH
-const GRID_CENTER : Vector3 = GlobalData.GRID_CENTER
-const CELL_SIZE: float = GlobalData.CELL_SIZE
+const GRID_WIDTH: int = GData.GRID_WIDTH
+const GRID_DEPTH: int = GData.GRID_DEPTH
+const GRID_CENTER : Vector3 = GData.GRID_CENTER
+const CELL_SIZE: float = GData.CELL_SIZE
 
 
-const GRID_LAYER_COLORS = GlobalData.GRID_LAYER_COLORS
+const GRID_LAYER_COLORS = GData.GRID_LAYER_COLORS
 
 const TILES_NODE_NAME : String = "Tiles"
 
@@ -131,8 +131,8 @@ func spawn_visual_tile(x: int, target_height: int, z: int) -> void:
 		var tile = Tile.new()
 		tile.grid_pos = Vector2i(x, z)
 		tile.height_level = h
-		tile.collision_layer = GlobalData.TILE.COLLISION_LAYER_BITMASK
-		tile.collision_mask = GlobalData.TILE.COLLISION_MASK_BITMASK
+		tile.collision_layer = GData.TILE.COLLISION_LAYER_BITMASK
+		tile.collision_mask = GData.TILE.COLLISION_MASK_BITMASK
 		
 		# 2. Attach MeshInstance3D
 		var tile_mesh = MeshInstance3D.new()
@@ -192,7 +192,7 @@ func update_grid_line_network() -> void:
 	
 	_grid_overlay_instance = MeshInstance3D.new()
 	_grid_overlay_instance.mesh = total_mesh
-	_grid_overlay_instance.layers = GlobalData.CAMERA_2D_LAYER_BITMASK
+	_grid_overlay_instance.layers = GData.CAMERA_2D_LAYER_BITMASK
 	add_child(_grid_overlay_instance)
 
 ## Evaluates the map dimensions to draw vertical or horizontal cell separators

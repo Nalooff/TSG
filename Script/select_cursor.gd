@@ -30,7 +30,7 @@ func _get_hovered_tile(max_distance: float = 2000.0) -> Dictionary:
 	var ray_origin = cam.project_ray_origin(mouse_pos)
 	var ray_end = ray_origin + cam.project_ray_normal(mouse_pos) * max_distance
 
-	var query = PhysicsRayQueryParameters3D.create(ray_origin, ray_end, GlobalData.TILE.COLLISION_LAYER_BITMASK)
+	var query = PhysicsRayQueryParameters3D.create(ray_origin, ray_end, GData.TILE.COLLISION_LAYER_BITMASK)
 	var hit = grid.get_world_3d().direct_space_state.intersect_ray(query)
 
 	if hit.is_empty():
