@@ -15,6 +15,13 @@ const COLOR_OUTLINE_REMOVE_INVALID = Color(1.0, 0.2, 0.2, 0.9)
 # ==========================================
 # EXPORTS & PROPERTIES
 # ==========================================
+@export var preview_enabled: bool = false:
+	set(value):
+		preview_enabled = value
+		_update_visibility_state()
+		if preview_enabled:
+			_reprocess_last_tile()
+
 @export var mode: Grid.BuildMode = Grid.BuildMode.ADD:
 	set(value):
 		mode = value
@@ -41,7 +48,9 @@ var is_placement_valid: bool = false
 
 # Cache the last received tile info so size/mode changes can re-evaluate instantly
 var _last_tile_info: Dictionary = {}
-var _hidden_meshes: Array[MeshInstance3D] = []
+
+# Typed to Node3D to match the Tile (StaticBody3D) elements stored in visual_matrix
+var _hidden_meshes: Array[Node3D] = []
 
 
 # ==========================================
@@ -52,6 +61,9 @@ func _ready() -> void:
 	_connect_event_signals()
 	_setup_materials()
 	_build_preview_nodes()
+	
+	# Enable preview after nodes and materials are fully setup
+	preview_enabled = true
 
 func _connect_event_signals() -> void:
 	EventBus.build_mode_changed.connect(func(new_mode): mode = new_mode)
@@ -79,11 +91,13 @@ func _setup_materials() -> void:
 
 func _build_preview_nodes() -> void:
 	preview_instance = MeshInstance3D.new()
+	preview_instance.visible = false
 	add_child(preview_instance)
 	
 	outline_instance = MeshInstance3D.new()
 	outline_instance.mesh = ImmediateMesh.new()
 	outline_instance.material_override = outline_mat
+	outline_instance.visible = false
 	add_child(outline_instance)
 	
 	_update_preview_mesh_dimensions()
@@ -101,7 +115,7 @@ func _on_tile_hovered(tile_info: Dictionary) -> void:
 	_process_tile_change(tile_info)
 
 func _process_tile_change(tile_info: Dictionary) -> void:
-	if not preview_instance: return
+	if not preview_instance or not preview_enabled: return
 
 	# Calculate top-left footprint corner based on the 1x1 hit point, normal, and block size
 	var grid_coords = _calculate_footprint_start(tile_info.position, tile_info.normal)
@@ -115,6 +129,7 @@ func _process_tile_change(tile_info: Dictionary) -> void:
 	
 	_update_preview_transform(gx, gz, structural_data["highest_tier"])
 	_update_preview_material()
+	_update_visibility_state()
 	_manage_block_hiding_pipeline(gx, gz, structural_data["highest_tier"])
 	
 	_broadcast_preview_state(gx, structural_data["highest_tier"], gz)
@@ -187,13 +202,20 @@ func _update_preview_mesh_dimensions() -> void:
 	_generate_wireframe_box(outline_instance.mesh as ImmediateMesh, target_size)
 
 func _configure_solid_mesh_visibility(target_size: Vector3) -> void:
-	if mode == Grid.BuildMode.ADD:
-		preview_instance.visible = true
-		if not preview_instance.mesh is BoxMesh:
-			preview_instance.mesh = BoxMesh.new()
-		(preview_instance.mesh as BoxMesh).size = target_size
-	else:
+	if not preview_instance.mesh is BoxMesh:
+		preview_instance.mesh = BoxMesh.new()
+	(preview_instance.mesh as BoxMesh).size = target_size
+	_update_visibility_state()
+
+func _update_visibility_state() -> void:
+	if not preview_instance or not outline_instance: return
+	
+	if not preview_enabled or _last_tile_info.is_empty():
 		preview_instance.visible = false
+		outline_instance.visible = false
+	else:
+		preview_instance.visible = (mode == Grid.BuildMode.ADD)
+		outline_instance.visible = true
 
 func _update_preview_transform(gx: int, gz: int, target_tier: int) -> void:
 	var offset_x = (preview_size.x * grid.CELL_SIZE) / 2.0
@@ -276,14 +298,14 @@ func _draw_tactical_hash_lines(imm_mesh: ImmediateMesh, ext: Vector3) -> void:
 # ==========================================
 
 func _restore_hidden_blocks() -> void:
-	for mesh in _hidden_meshes:
-		if is_instance_valid(mesh):
-			mesh.visible = true
+	for node in _hidden_meshes:
+		if is_instance_valid(node):
+			node.visible = true
 	_hidden_meshes.clear()
 
 func _manage_block_hiding_pipeline(gx: int, gz: int, target_tier: int) -> void:
 	_restore_hidden_blocks()
-	if mode != Grid.BuildMode.REMOVE or not is_placement_valid: return
+	if mode != Grid.BuildMode.REMOVE or not is_placement_valid or not preview_enabled: return
 		
 	var bounds = _calculate_removal_tier_bounds(target_tier)
 	_hide_blocks_within_volume(gx, gz, bounds.x, bounds.y)
@@ -298,13 +320,13 @@ func _hide_blocks_within_volume(gx: int, gz: int, bottom_tier: int, top_tier: in
 func _hide_cell_column_segments(lx: int, lz: int, bottom: int, top: int) -> void:
 	if lx < 0 or lx >= GlobalData.GRID_WIDTH or lz < 0 or lz >= GlobalData.GRID_DEPTH: return
 	
-	var cell_meshes = grid.visual_matrix[lx][lz]
-	for h in range(cell_meshes.size()):
+	var cell_tiles = grid.visual_matrix[lx][lz]
+	for h in range(cell_tiles.size()):
 		if h >= bottom and h <= top:
-			var mesh = cell_meshes[h]
-			if is_instance_valid(mesh) and mesh.visible:
-				mesh.visible = false
-				_hidden_meshes.append(mesh)
+			var tile_node = cell_tiles[h]
+			if is_instance_valid(tile_node) and tile_node.visible:
+				tile_node.visible = false
+				_hidden_meshes.append(tile_node)
 
 
 # ==========================================
