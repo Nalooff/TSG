@@ -49,8 +49,8 @@ var is_placement_valid: bool = false
 # Cache the last received tile info so size/mode changes can re-evaluate instantly
 var _last_tile_info: Dictionary = {}
 
-# Typed to Node3D to match the Tile (StaticBody3D) elements stored in visual_matrix
-var _hidden_meshes: Array[Node3D] = []
+
+var _hidden_meshes: Array[Tile] = []
 
 
 # ==========================================
@@ -298,9 +298,9 @@ func _draw_tactical_hash_lines(imm_mesh: ImmediateMesh, ext: Vector3) -> void:
 # ==========================================
 
 func _restore_hidden_blocks() -> void:
-	for node in _hidden_meshes:
-		if is_instance_valid(node):
-			node.visible = true
+	for tile in _hidden_meshes:
+		if is_instance_valid(tile):
+			tile.visible = true
 	_hidden_meshes.clear()
 
 func _manage_block_hiding_pipeline(gx: int, gz: int, target_tier: int) -> void:
@@ -319,12 +319,12 @@ func _hide_blocks_within_volume(gx: int, gz: int, bottom_tier: int, top_tier: in
 
 func _hide_cell_column_segments(lx: int, lz: int, bottom: int, top: int) -> void:
 	if lx < 0 or lx >= GlobalData.GRID_WIDTH or lz < 0 or lz >= GlobalData.GRID_DEPTH: return
-	
+
 	var cell_tiles = grid.visual_matrix[lx][lz]
 	for h in range(cell_tiles.size()):
 		if h >= bottom and h <= top:
 			var tile_node = cell_tiles[h]
-			if is_instance_valid(tile_node) and tile_node.visible:
+			if tile_node is Tile and is_instance_valid(tile_node) and tile_node.visible:
 				tile_node.visible = false
 				_hidden_meshes.append(tile_node)
 
