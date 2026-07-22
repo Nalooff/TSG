@@ -137,12 +137,12 @@ func _process_tile_change(tile_info: Dictionary) -> void:
 ## Calculates footprint starting corner given raycast hit point and preview_size dimensions.
 func _calculate_footprint_start(hit_pos: Vector3, hit_norm: Vector3) -> Vector2i:
 	var sample_pos = hit_pos + (hit_norm * (0.1 if hit_norm.y <= 0.5 else -0.1))
-	var gx = _calculate_axis_start_index(sample_pos.x, preview_size.x, grid.GRID_WIDTH)
-	var gz = _calculate_axis_start_index(sample_pos.z, preview_size.z, grid.GRID_DEPTH)
+	var gx = _calculate_axis_start_index(sample_pos.x, preview_size.x, GData.GRID_WIDTH)
+	var gz = _calculate_axis_start_index(sample_pos.z, preview_size.z, GData.GRID_DEPTH)
 	return Vector2i(gx, gz)
 
 func _calculate_axis_start_index(spatial_pos: float, block_dim: int, grid_limit: int) -> int:
-	var precise_cell = spatial_pos / grid.CELL_SIZE
+	var precise_cell = spatial_pos / GData.CELL_SIZE
 	var exact_hover_idx = int(floor(precise_cell))
 	var start_idx: int
 	
@@ -197,7 +197,7 @@ func _calculate_removal_tier_bounds(highest_tier: int) -> Vector2i:
 func _update_preview_mesh_dimensions() -> void:
 	if not preview_instance or not outline_instance: return
 	
-	var target_size = Vector3(preview_size) * grid.CELL_SIZE
+	var target_size = Vector3(preview_size) * GData.CELL_SIZE
 	_configure_solid_mesh_visibility(target_size)
 	_generate_wireframe_box(outline_instance.mesh as ImmediateMesh, target_size)
 
@@ -218,17 +218,17 @@ func _update_visibility_state() -> void:
 		outline_instance.visible = true
 
 func _update_preview_transform(gx: int, gz: int, target_tier: int) -> void:
-	var offset_x = (preview_size.x * grid.CELL_SIZE) / 2.0
-	var offset_z = (preview_size.z * grid.CELL_SIZE) / 2.0
+	var offset_x = (preview_size.x * GData.CELL_SIZE) / 2.0
+	var offset_z = (preview_size.z * GData.CELL_SIZE) / 2.0
 	var py: float
 	
 	if mode == Grid.BuildMode.ADD:
-		py = ((target_tier + 1) * grid.CELL_SIZE) + ((preview_size.y * grid.CELL_SIZE) / 2.0)
+		py = ((target_tier + 1) * GData.CELL_SIZE) + ((preview_size.y * GData.CELL_SIZE) / 2.0)
 	else:
 		var bounds = _calculate_removal_tier_bounds(target_tier)
-		py = (bounds.x * grid.CELL_SIZE) + ((preview_size.y * grid.CELL_SIZE) / 2.0)
+		py = (bounds.x * GData.CELL_SIZE) + ((preview_size.y * GData.CELL_SIZE) / 2.0)
 	
-	_apply_preview_positioning(Vector3((gx * grid.CELL_SIZE) + offset_x, py, (gz * grid.CELL_SIZE) + offset_z))
+	_apply_preview_positioning(Vector3((gx * GData.CELL_SIZE) + offset_x, py, (gz * GData.CELL_SIZE) + offset_z))
 
 func _apply_preview_positioning(final_position: Vector3) -> void:
 	preview_instance.global_position = final_position

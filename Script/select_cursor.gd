@@ -38,8 +38,8 @@ func _get_hovered_tile(max_distance: float = 2000.0) -> Dictionary:
 
 	# Small bias using normal to ensure ray inside-surface sampling accuracy
 	var sample_pos = hit.position + (hit.normal * (0.1 if hit.normal.y <= 0.5 else -0.1))
-	var gx = clampi(int(floor(sample_pos.x / grid.CELL_SIZE)), 0, grid.GRID_WIDTH - 1)
-	var gz = clampi(int(floor(sample_pos.z / grid.CELL_SIZE)), 0, grid.GRID_DEPTH - 1)
+	var gx = clampi(int(floor(sample_pos.x / GData.CELL_SIZE)), 0, GData.GRID_WIDTH - 1)
+	var gz = clampi(int(floor(sample_pos.z / GData.CELL_SIZE)), 0, GData.GRID_DEPTH - 1)
 
 	return {
 		"grid_pos": Vector2i(gx, gz),
