@@ -22,10 +22,9 @@ const COLOR_OUTLINE_REMOVE_INVALID = Color(1.0, 0.2, 0.2, 0.9)
 		if preview_enabled:
 			_reprocess_last_tile()
 
-@export var mode: Grid.BuildMode = Grid.BuildMode.ADD:
+@export var mode: GData.BuildMode = GData.BuildMode.ADD:
 	set(value):
 		mode = value
-		EventBus.build_mode_changed.emit(value)
 		_update_preview_mesh_dimensions()
 		_reprocess_last_tile()
 
@@ -49,7 +48,6 @@ var is_placement_valid: bool = false
 # Cache the last received tile info so size/mode changes can re-evaluate instantly
 var _last_tile_info: Dictionary = {}
 
-
 var _hidden_meshes: Array[Tile] = []
 
 
@@ -64,11 +62,15 @@ func _ready() -> void:
 	
 	# Enable preview after nodes and materials are fully setup
 	preview_enabled = true
+	PieceHandler.current_build_mode = mode
 
 func _connect_event_signals() -> void:
-	EventBus.build_mode_changed.connect(func(new_mode): mode = new_mode)
+	EventBus.build_mode_changed.connect(_on_build_mode_changed)
 	EventBus.block_placed.connect(is_block_placed)
 	EventBus.tile_hovered.connect(_on_tile_hovered)
+
+func _on_build_mode_changed(new_mode: GData.BuildMode) -> void:
+	mode = new_mode
 
 func is_block_placed(_pos, _size, is_successful: bool) -> void: 
 	if is_successful: 
@@ -174,7 +176,7 @@ func _scan_footprint_terrain(gx: int, gz: int) -> Dictionary:
 	return result
 
 func _evaluate_placement_rules(structural_data: Dictionary) -> bool:
-	if mode == Grid.BuildMode.REMOVE:
+	if mode == GData.BuildMode.REMOVE:
 		return structural_data["highest_tier"] > 0
 		
 	var perfect_flat_foundation = structural_data["is_flat"]
@@ -214,7 +216,7 @@ func _update_visibility_state() -> void:
 		preview_instance.visible = false
 		outline_instance.visible = false
 	else:
-		preview_instance.visible = (mode == Grid.BuildMode.ADD)
+		preview_instance.visible = (mode == GData.BuildMode.ADD)
 		outline_instance.visible = true
 
 func _update_preview_transform(gx: int, gz: int, target_tier: int) -> void:
@@ -222,7 +224,7 @@ func _update_preview_transform(gx: int, gz: int, target_tier: int) -> void:
 	var offset_z = (preview_size.z * GData.CELL_SIZE) / 2.0
 	var py: float
 	
-	if mode == Grid.BuildMode.ADD:
+	if mode == GData.BuildMode.ADD:
 		py = ((target_tier + 1) * GData.CELL_SIZE) + ((preview_size.y * GData.CELL_SIZE) / 2.0)
 	else:
 		var bounds = _calculate_removal_tier_bounds(target_tier)
@@ -235,7 +237,7 @@ func _apply_preview_positioning(final_position: Vector3) -> void:
 	outline_instance.global_position = final_position
 
 func _update_preview_material() -> void:
-	if mode == Grid.BuildMode.ADD:
+	if mode == GData.BuildMode.ADD:
 		preview_instance.material_override = valid_mat if is_placement_valid else invalid_mat
 		outline_mat.albedo_color = COLOR_OUTLINE_BUILD_VALID if is_placement_valid else COLOR_OUTLINE_BUILD_INVALID
 	else:
@@ -253,7 +255,7 @@ func _generate_wireframe_box(imm_mesh: ImmediateMesh, size: Vector3) -> void:
 	var ext = size / 2.0
 	_draw_cage_skeleton_lines(imm_mesh, ext)
 	
-	if mode == Grid.BuildMode.REMOVE:
+	if mode == GData.BuildMode.REMOVE:
 		_draw_tactical_hash_lines(imm_mesh, ext)
 	
 	imm_mesh.surface_end()
@@ -305,7 +307,7 @@ func _restore_hidden_blocks() -> void:
 
 func _manage_block_hiding_pipeline(gx: int, gz: int, target_tier: int) -> void:
 	_restore_hidden_blocks()
-	if mode != Grid.BuildMode.REMOVE or not is_placement_valid or not preview_enabled: return
+	if mode != GData.BuildMode.REMOVE or not is_placement_valid or not preview_enabled: return
 		
 	var bounds = _calculate_removal_tier_bounds(target_tier)
 	_hide_blocks_within_volume(gx, gz, bounds.x, bounds.y)

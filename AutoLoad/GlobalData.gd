@@ -16,6 +16,8 @@ const GRID_CENTER: Vector3 = Vector3(GRID_WIDTH, 0, GRID_DEPTH) * CELL_SIZE / 2.
 const CELL_SIZE: float = 2.0
 
 
+enum BuildMode { ADD, REMOVE }
+
 const GRID_LAYER_COLORS = [
 	Color8(64, 64, 64),    # Layer 0: Dark Grey
 	Color8(127, 127, 127),  # Layer 1: Grey

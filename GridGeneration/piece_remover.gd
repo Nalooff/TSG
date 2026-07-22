@@ -1,18 +1,21 @@
 extends PieceHandler
 class_name PieceRemover
 
-#func _unhandled_input(event: InputEvent) -> void:
-#	if event.is_action_pressed("remove_piece"):
-#		_try_remove_piece_at_cursor()
+# ==========================================
+# OVERRIDDEN ACTION HANDLERS
+# ==========================================
 
-func _try_remove_piece_at_cursor() -> void:
-	if not _is_cursor_valid(): return
-		
-	var request_coord = Vector2i(current_grid_pos.x, current_grid_pos.z)
-	#_execute_decoupled_removal(request_coord, current_size)
+## Evaluates whether handler handles REMOVE mode.
+func _can_handle_mode() -> bool:
+	if current_build_mode == GData.BuildMode.REMOVE:
+		return true
+	return super._can_handle_mode()
 
+## Dispatches grid removal request.
+func _execute_action(request_coord: Vector2i, _height = null) -> void:
+	EventBus.removal_requested.emit(request_coord, current_size)
 
-## Specific failure logic for removing (keeps current layer height)
+## Specific failure logic for removing (retains target height).
 func _handle_action_failure() -> void:
 	var fail_coords = Vector3i(current_grid_pos.x, current_grid_pos.y, current_grid_pos.z)
-	EventBus.block_placed.emit(fail_coords, current_size, false)
+	EventBus.block_removed.emit(fail_coords, current_size, false)

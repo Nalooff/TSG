@@ -26,13 +26,13 @@ event_bus/config/show_argument_names=false
 event_bus/config/show_emitter_line_number=true
 event_bus/config/show_receiver_line_number=false
 event_bus/signals/camera_changed=true
-event_bus/signals/build_mode_changed=false
+event_bus/signals/build_mode_changed=true
 event_bus/signals/tile_hovered=false
 event_bus/signals/preview_updated=false
 event_bus/signals/placement_requested=true
 event_bus/signals/block_placed=false
-event_bus/signals/suppression_requested=true
-event_bus/signals/block_suppressed=false
+event_bus/signals/removal_requested=false
+event_bus/signals/block_removed=false
 event_bus/signals/pawn_moved=false
 event_bus/signals/game_started=false
 
@@ -58,8 +58,13 @@ rotate_right={
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194321,"key_label":0,"unicode":0,"echo":false,"script":null)
 ]
 }
-place_piece={
+interact={
 "deadzone": 0.5,
 "events": [Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"button_mask":0,"position":Vector2(0, 0),"global_position":Vector2(0, 0),"factor":1.0,"button_index":1,"canceled":false,"pressed":false,"double_click":false,"script":null)
+]
+}
+switch_build_mode={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":66,"key_label":0,"unicode":98,"echo":false,"script":null)
 ]
 }
