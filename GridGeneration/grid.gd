@@ -217,17 +217,40 @@ func _on_placement_requested(map_pos: Vector2i, size: Vector3i) -> void:
 
 ## Event handler to incrementally remove layers down over a requested footprint.
 func _on_removal_requested(map_pos: Vector2i, size: Vector3i) -> void:
-	var start_height = get_height_at(map_pos.x, map_pos.y)
-	if start_height < 0: return # Out of bounds or completely empty safety check
+	var max_x := map_pos.x + size.x
+	var max_z := map_pos.y + size.z
 
-	for x in range(map_pos.x, map_pos.x + size.x):
-		for z in range(map_pos.y, map_pos.y + size.z):
-			for dy in range(size.y):
-				remove_top_tile_at(x, z)
-				
-	update_grid_line_network()
+	var highest_tier := 0
 	
-	var final_coords = Vector3i(map_pos.x, start_height, map_pos.y)
+	# 1. SCAN PASS: Single lightweight sweep to find peak height
+	for x in range(map_pos.x, max_x):
+		for z in range(map_pos.y, max_z):
+			var h := get_height_at(x, z)
+			if h > highest_tier:
+				highest_tier = h
+
+	if highest_tier <= 0:
+		return
+
+	var bottom_tier: int = max(1, highest_tier - size.y + 1)
+	
+	# 2. TARGETED ACTION PASS: Only visit columns that intersect [bottom_tier, highest_tier]
+	for x in range(map_pos.x, max_x):
+		for z in range(map_pos.y, max_z):
+			var col_height := get_height_at(x, z)
+			
+			# SKIP EARLY: If this column is below bottom_tier, don't even process it
+			if col_height < bottom_tier:
+				continue
+				
+			# Calculate exact number of removals needed for this column instantly
+			var remove_count: int = col_height - bottom_tier + 1
+			for i in range(remove_count):
+				remove_top_tile_at(x, z)
+
+	update_grid_line_network()
+
+	var final_coords := Vector3i(map_pos.x, highest_tier, map_pos.y)
 	EventBus.block_removed.emit(final_coords, size, true)
 
 
