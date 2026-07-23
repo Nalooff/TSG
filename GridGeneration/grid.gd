@@ -199,20 +199,21 @@ func clear_column_at(x: int, z: int) -> void:
 # EVENT BUS HANDLERS
 # ==========================================
 
-## Event handler to incrementally add layers over a requested footprint.
+## Event handler to incrementally add layers over a requested footprint with dynamic terrain conforming.
 func _on_placement_requested(map_pos: Vector2i, size: Vector3i) -> void:
-	var start_height = get_height_at(map_pos.x, map_pos.y)
-	if start_height < -1: return
+	var max_x := map_pos.x + size.x
+	var max_z := map_pos.y + size.z
 
-	for x in range(map_pos.x, map_pos.x + size.x):
-		for z in range(map_pos.y, map_pos.y + size.z):
-			var current_top = get_height_at(x, z)
+	# Add exactly size.y blocks above each cell's current height level
+	for x in range(map_pos.x, max_x):
+		for z in range(map_pos.y, max_z):
+			var current_top := get_height_at(x, z)
 			for dy in range(size.y):
 				add_tile_at(x, current_top + 1 + dy, z)
 			
 	update_grid_line_network()
 	
-	var final_coords = Vector3i(map_pos.x, start_height + size.y, map_pos.y)
+	var final_coords = Vector3i(map_pos.x, get_height_at(map_pos.x, map_pos.y), map_pos.y)
 	EventBus.block_placed.emit(final_coords, size, true)
 
 ## Event handler to incrementally remove layers down over a requested footprint.
