@@ -1,0 +1,12 @@
+[gd_scene load_steps=2 format=3 uid="uid://dhdg2aj2hqvat"]
+
+[ext_resource type="Script" path="res://UnitManagment/unit_manager.gd" id="1_m78d3"]
+
+[node name="UnitManager" type="Node3D"]
+script = ExtResource("1_m78d3")
+
+[node name="PreviewMovement" type="Node3D" parent="."]
+
+[node name="SelectUnit" type="Node3D" parent="."]
+
+[node name="UnitMovement" type="Node3D" parent="."]
