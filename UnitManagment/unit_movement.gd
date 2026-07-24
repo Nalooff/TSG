@@ -15,14 +15,15 @@ func _ready():
 		return
 
 func _can_handle_mode() -> bool:
+	if not unit_mger.selected_pawn:
+		return false
 	if Global.current_mode == GData.GameMode.PLAY:
 		return true
 	return super._can_handle_mode()
 	
 
 func _execute_action(request_coord: Vector2i, _height = null) -> void:
-	if unit_mger.selected_pawn:
-		EventBus.pawn_move_requested.emit(unit_mger.selected_pawn, request_coord)
+	EventBus.pawn_move_requested.emit(unit_mger.selected_pawn, request_coord)
 
 
 func _handle_action_failure() -> void:
