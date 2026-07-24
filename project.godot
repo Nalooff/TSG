@@ -35,6 +35,7 @@ event_bus/signals/placement_requested=true
 event_bus/signals/block_placed=false
 event_bus/signals/removal_requested=false
 event_bus/signals/block_removed=false
+event_bus/signals/pawn_hovered=false
 event_bus/signals/pawn_move_requested=false
 event_bus/signals/pawn_moved=false
 event_bus/signals/camera_changed=true

@@ -54,6 +54,8 @@ enum GameMode {
 # Sub-mode for BUILD state
 enum BuildMode { ADD, REMOVE }
 
+# Sub-mode for PLAY state
+enum PlayMode {MOVE, SELECT, INTERACT}
 
 # ===============================================
 # PARAMETERS NAME

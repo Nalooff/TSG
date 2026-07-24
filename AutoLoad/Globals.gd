@@ -1,7 +1,9 @@
 extends Node
 
-var current_build_mode: GData.BuildMode = GData.BuildMode.ADD
 var current_mode: GData.GameMode = GData.GameMode.BUILD
+var current_play_mode: GData.PlayMode = GData.PlayMode.SELECT
+var current_build_mode: GData.BuildMode = GData.BuildMode.ADD
+
 
 
 ## Switches active mode between ADD and REMOVE, broadcasting the result globally.

@@ -2,48 +2,85 @@ extends Node3D
 
 @onready var grid: Grid = get_parent() as Grid
 
-# Cache the last emitted tile coordinates to prevent unnecessary signal spam
 var _last_gx: int = -1
 var _last_gz: int = -1
+var _last_hovered_pawn: BasePawn = null
 
 func _process(_delta: float) -> void:
-	var tile_info = _get_hovered_tile()
-	
-	# If ray hits nothing, retain the last valid tile state and do nothing
-	if tile_info.is_empty():
+	# Guard: Only process during active gameplay or build modes
+	if Global.current_mode == GData.GameMode.MENU or Global.current_mode == GData.GameMode.NONE:
 		return
+	
+	_update_hover_state()
 
-	var current_pos: Vector2i = tile_info["grid_pos"]
-
-	# Only emit if we have moved to a DIFFERENT valid tile
-	if current_pos.x != _last_gx or current_pos.y != _last_gz:
-		_last_gx = current_pos.x
-		_last_gz = current_pos.y
-		EventBus.tile_hovered.emit(tile_info)
-
-## Performs a mouse raycast and resolves the targeted 1x1 grid cell.
-func _get_hovered_tile(max_distance: float = 2000.0) -> Dictionary:
+func _update_hover_state() -> void:
 	var cam = get_viewport().get_camera_3d()
-	if not cam or not grid: return {}
+	if not cam or not grid: return
 
 	var mouse_pos = get_viewport().get_mouse_position()
 	var ray_origin = cam.project_ray_origin(mouse_pos)
-	var ray_end = ray_origin + cam.project_ray_normal(mouse_pos) * max_distance
+	var ray_end = ray_origin + cam.project_ray_normal(mouse_pos) * 2000.0
 
-	var query = PhysicsRayQueryParameters3D.create(ray_origin, ray_end, GData.TILE.COLLISION_LAYER_BITMASK)
+	# 1. Determine Raycast Mask based on active sub-mode
+	var mask: int = 0
+	
+	if Global.current_mode == GData.GameMode.BUILD or (Global.current_mode == GData.GameMode.PLAY and Global.current_play_mode == GData.PlayMode.MOVE):
+		# Tile-only raycast (movement destination or building map)
+		mask = GData.TILE.COLLISION_LAYER_BITMASK
+	elif Global.current_mode == GData.GameMode.PLAY and Global.current_play_mode == GData.PlayMode.SELECT:
+		# Unit selection: Pawns + Tiles (so elevated walls block units behind them)
+		mask = GData.PAWN.COLLISION_LAYER_BITMASK | GData.TILE.COLLISION_LAYER_BITMASK
+
+	if mask == 0:
+		_clear_hover_states()
+		return
+
+	# 2. Perform Raycast
+	var query = PhysicsRayQueryParameters3D.create(ray_origin, ray_end, mask)
 	var hit = grid.get_world_3d().direct_space_state.intersect_ray(query)
 
 	if hit.is_empty():
-		return {}
+		return
 
-	# Small bias using normal to ensure ray inside-surface sampling accuracy
+	# 3. Process Raycast Result
+	if hit.collider is BasePawn:
+		_notify_pawn_hover(hit.collider as BasePawn)
+		_clear_tile_hover()
+	else:
+		_notify_tile_hover(hit)
+		_clear_pawn_hover()
+
+# --- Helper State Broadcasters ---
+
+func _notify_pawn_hover(pawn: BasePawn) -> void:
+	if pawn != _last_hovered_pawn:
+		_last_hovered_pawn = pawn
+		EventBus.pawn_hovered.emit(pawn)
+
+func _notify_tile_hover(hit: Dictionary) -> void:
 	var sample_pos = hit.position + (hit.normal * (0.1 if hit.normal.y <= 0.5 else -0.1))
 	var gx = clampi(int(floor(sample_pos.x / GData.CELL_SIZE)), 0, GData.GRID_WIDTH - 1)
 	var gz = clampi(int(floor(sample_pos.z / GData.CELL_SIZE)), 0, GData.GRID_DEPTH - 1)
 
-	return {
-		"grid_pos": Vector2i(gx, gz),
-		"normal": hit.normal,
-		"position": hit.position,
-		"collider": hit.collider
-	}
+	if gx != _last_gx or gz != _last_gz:
+		_last_gx = gx
+		_last_gz = gz
+		EventBus.tile_hovered.emit({
+			"grid_pos": Vector2i(gx, gz),
+			"normal": hit.normal,
+			"position": hit.position,
+			"collider": hit.collider
+		})
+
+func _clear_pawn_hover() -> void:
+	if _last_hovered_pawn != null:
+		_last_hovered_pawn = null
+		EventBus.pawn_hovered.emit(null)
+
+func _clear_tile_hover() -> void:
+	_last_gx = -1
+	_last_gz = -1
+
+func _clear_hover_states() -> void:
+	_clear_pawn_hover()
+	_clear_tile_hover()
