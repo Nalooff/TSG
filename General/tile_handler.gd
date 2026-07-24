@@ -1,5 +1,5 @@
 extends Node
-class_name PieceHandler
+class_name TileHandler
 
 # ==========================================
 # STATE & DATA CONTAINERS

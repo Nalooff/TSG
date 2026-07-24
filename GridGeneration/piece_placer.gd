@@ -1,4 +1,4 @@
-extends PieceHandler
+extends TileHandler
 class_name PiecePlacer
 
 # ==========================================

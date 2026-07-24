@@ -1,4 +1,4 @@
-extends PieceHandler
+extends TileHandler
 class_name UnitMovement
 
 @export var unit_mger: UnitManager
@@ -21,8 +21,8 @@ func _can_handle_mode() -> bool:
 	
 
 func _execute_action(request_coord: Vector2i, _height = null) -> void:
-	EventBus.pawn_move_requested.emit(unit_mger.selected_pawn, request_coord)
-	pass
+	if unit_mger.selected_pawn:
+		EventBus.pawn_move_requested.emit(unit_mger.selected_pawn, request_coord)
 
 
 func _handle_action_failure() -> void:
