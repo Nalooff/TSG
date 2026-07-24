@@ -14,5 +14,6 @@ script = ExtResource("2_qlm55")
 [node name="SelectUnit" type="Node3D" parent="."]
 script = ExtResource("3_euoyf")
 
-[node name="UnitMovement" type="Node3D" parent="."]
+[node name="UnitMovement" type="Node3D" parent="." node_paths=PackedStringArray("unit_mger")]
 script = ExtResource("4_m2yoc")
+unit_mger = NodePath("..")

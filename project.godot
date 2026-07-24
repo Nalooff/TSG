@@ -19,22 +19,25 @@ config/icon="res://icon.svg"
 
 EventBus="*res://AutoLoad/EventBus.gd"
 GData="*res://AutoLoad/GlobalData.gd"
+Global="*res://AutoLoad/Globals.gd"
 
 [debug]
 
 event_bus/config/show_argument_names=false
 event_bus/config/show_emitter_line_number=true
 event_bus/config/show_receiver_line_number=false
-event_bus/signals/camera_changed=true
+event_bus/signals/game_started=false
 event_bus/signals/build_mode_changed=true
+event_bus/signals/game_mode_changed=false
 event_bus/signals/tile_hovered=false
 event_bus/signals/preview_updated=false
 event_bus/signals/placement_requested=true
 event_bus/signals/block_placed=false
 event_bus/signals/removal_requested=false
 event_bus/signals/block_removed=false
+event_bus/signals/pawn_move_requested=false
 event_bus/signals/pawn_moved=false
-event_bus/signals/game_started=false
+event_bus/signals/camera_changed=true
 
 [input]
 

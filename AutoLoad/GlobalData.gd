@@ -15,9 +15,6 @@ const GRID_HEIGHT: int = 4
 const GRID_CENTER: Vector3 = Vector3(GRID_WIDTH, 0, GRID_DEPTH) * CELL_SIZE / 2.0
 const CELL_SIZE: float = 2.0
 
-
-enum BuildMode { ADD, REMOVE }
-
 const GRID_LAYER_COLORS = [
 	Color8(64, 64, 64),    # Layer 0: Dark Grey
 	Color8(127, 127, 127),  # Layer 1: Grey
@@ -45,6 +42,20 @@ const PAWN = {
 }
 
 # ===============================================
+# GAME STATES / MODES
+# ===============================================
+enum GameMode {
+	PLAY,    # Normal gameplay: selecting units, moving, attacking
+	BUILD,   # Map editing: adding/removing tiles using BuildMode
+	MENU,  # Game menu / paused state: ignores board clicks entirely
+	NONE     # Neutral state (e.g., cutscenes, transitions)
+}
+
+# Sub-mode for BUILD state
+enum BuildMode { ADD, REMOVE }
+
+
+# ===============================================
 # PARAMETERS NAME
 # ===============================================
 const COLLISION_LAYER : String = "COLLISION_LAYER"
@@ -52,3 +63,5 @@ const COLLISION_LAYER_BITMASK : String = "COLLISION_LAYER_BITMASK"
 const COLLISION_MASK : String = "COLLISION_MASK"
 const COLLISION_MASK_BITMASK : String = "COLLISION_MASK_BITMASK"
 const OCCUPIES_CELL : String = "OCCUPIES_CELL"
+
+

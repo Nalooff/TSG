@@ -1,10 +1,10 @@
 [gd_scene load_steps=3 format=3 uid="uid://jk28lrtar12u"]
 
-[ext_resource type="Script" path="res://General/world.gd" id="1_0red6"]
-[ext_resource type="PackedScene" path="res://GridGeneration/grid.tscn" id="3_wfsc2"]
+[ext_resource type="Script" path="res://General/world.gd" id="1_j06x6"]
+[ext_resource type="PackedScene" uid="uid://cp64sr6bfbmps" path="res://GridGeneration/grid.tscn" id="2_csvx7"]
 
 [node name="World" type="Node3D" node_paths=PackedStringArray("cam3D_view2D", "cam3D_view3D")]
-script = ExtResource("1_0red6")
+script = ExtResource("1_j06x6")
 cam3D_view2D = NodePath("View2D")
 cam3D_view3D = NodePath("View3D")
 
@@ -15,7 +15,7 @@ cull_mask = 524287
 [node name="View2D" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 10.709, 0)
 
-[node name="Grid" parent="." instance=ExtResource("3_wfsc2")]
+[node name="Grid" parent="." instance=ExtResource("2_csvx7")]
 
 [node name="BlockPreview" parent="Grid" index="1"]
 preview_enabled = true

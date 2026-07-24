@@ -63,7 +63,7 @@ func _ready() -> void:
 	_connect_event_signals()
 	_setup_materials()
 	_build_preview_nodes()
-	PieceHandler.current_build_mode = mode
+	Global.current_build_mode = mode
 
 
 
