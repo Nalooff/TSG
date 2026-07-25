@@ -29,3 +29,15 @@ func switch_game_mode(mode = null) -> void:
 		var next_index: int = (current_index + 1) % all_modes.size()
 		
 		current_mode = all_modes[next_index]
+
+
+func grid_to_world(grid_pos: Vector2i, height: int = 0) -> Vector3:
+	var world_x = grid_pos.x * GData.CELL_SIZE + (GData.CELL_SIZE / 2.0)
+	var world_y = height * GData.CELL_SIZE
+	var world_z = grid_pos.y * GData.CELL_SIZE + (GData.CELL_SIZE / 2.0)
+	return Vector3(world_x, world_y, world_z)
+
+func pos_to_grid(world_pos: Vector3) -> Vector2i:
+	var grid_x = int(floor(world_pos.x / GData.CELL_SIZE))
+	var grid_z = int(floor(world_pos.y / GData.CELL_SIZE)) # Or world_pos.z depending on your 3D plane layout
+	return Vector2i(grid_x, grid_z)
