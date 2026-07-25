@@ -11,9 +11,10 @@ script = ExtResource("1_m78d3")
 [node name="PreviewMovement" type="Node3D" parent="."]
 script = ExtResource("2_qlm55")
 
-[node name="SelectUnit" type="Node3D" parent="."]
+[node name="SelectUnit" type="Node3D" parent="." node_paths=PackedStringArray("unit_manager")]
 script = ExtResource("3_euoyf")
+unit_manager = NodePath("..")
 
-[node name="UnitMovement" type="Node3D" parent="." node_paths=PackedStringArray("unit_mger")]
+[node name="UnitMovement" type="Node3D" parent="." node_paths=PackedStringArray("unit_manager")]
 script = ExtResource("4_m2yoc")
-unit_mger = NodePath("..")
+unit_manager = NodePath("..")
