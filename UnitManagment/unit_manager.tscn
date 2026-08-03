@@ -1,9 +1,9 @@
 [gd_scene load_steps=5 format=3 uid="uid://dhdg2aj2hqvat"]
 
-[ext_resource type="Script" path="res://UnitManagment/unit_manager.gd" id="1_m78d3"]
-[ext_resource type="Script" path="res://UnitManagment/preview_movement.gd" id="2_qlm55"]
-[ext_resource type="Script" path="res://UnitManagment/select_unit.gd" id="3_euoyf"]
-[ext_resource type="Script" path="res://UnitManagment/unit_movement.gd" id="4_m2yoc"]
+[ext_resource type="Script" uid="uid://d22ee2moi0u1v" path="res://UnitManagment/unit_manager.gd" id="1_m78d3"]
+[ext_resource type="Script" uid="uid://cxtmkpl25kngl" path="res://UnitManagment/preview_movement.gd" id="2_qlm55"]
+[ext_resource type="Script" uid="uid://cnwjqolamm4cm" path="res://UnitManagment/select_unit.gd" id="3_euoyf"]
+[ext_resource type="Script" uid="uid://dbgdlltet4lu6" path="res://UnitManagment/unit_movement.gd" id="4_m2yoc"]
 
 [node name="UnitManager" type="Node3D"]
 script = ExtResource("1_m78d3")

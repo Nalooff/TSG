@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3 uid="uid://ex7q0ctfewon"]
 
-[ext_resource type="Script" path="res://UnitManagment/Abstract/base_pawn.gd" id="1_2w3wp"]
+[ext_resource type="Script" uid="uid://dkvi7wfpy474o" path="res://UnitManagment/Abstract/base_pawn.gd" id="1_2w3wp"]
 [ext_resource type="Texture2D" uid="uid://bp43dijulw6e" path="res://icon.svg" id="1_10sa4"]
 
 [node name="BasePawn" type="Node3D"]
