@@ -9,6 +9,7 @@ var selected_pawn: BasePawn
 
 
 func _ready() -> void:
+	_initialize_connection()
 	_initialize_containers()
 
 
@@ -23,7 +24,8 @@ func _initialize_containers() -> void:
 	pawn_container.name = PAWNS_NODE_NAME
 	add_child(pawn_container)
 
-
+func _initialize_connection():
+	EventBus.pawn_move_requested.connect(_on_pawn_move_requested)
 # ===============================================
 # SELECTION MANAGEMENT
 # ===============================================
@@ -50,6 +52,8 @@ func clear_selection() -> void:
 	selected_pawn = null
 	EventBus.pawn_deselected.emit()
 
+func _on_pawn_move_requested(pawn, pos):
+	pass
 
 # ===============================================
 # PAWN SPANNING & LIFECYCLE
