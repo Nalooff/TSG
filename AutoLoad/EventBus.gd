@@ -19,6 +19,7 @@ extends Node
 signal game_started(player_count: int)
 signal build_mode_changed(new_mode: GData.BuildMode)
 signal game_mode_changed(new_mode: GData.GameMode)
+signal board_changed()
 signal tile_hovered(tile_info: Dictionary) # Dictionary: { "grid_pos": Vector2i, "normal": Vector3, "position": Vector3, "collider": Object }
 signal preview_updated(grid_pos: Vector3i, size: Vector3i, is_valid: bool)
 signal placement_requested(grid_2d_pos: Vector2i, size: Vector3i)

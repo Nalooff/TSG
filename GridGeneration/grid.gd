@@ -1,8 +1,6 @@
 extends Node3D
 class_name Grid
 
-
-
 # ==========================================
 # CONSTANTS & CONFIGURATION
 # ==========================================
@@ -26,8 +24,6 @@ enum LineType { THICK, THIN_DASHED }
 # STATE & DATA CONTAINERS
 # ==========================================
 
-## 2D Matrix storing integer heights (top tier level) for every (X, Z) coordinate.
-var grid_matrix: Array = []
 ## 2D Matrix storing arrays of instantiated Tile nodes per (X, Z) cell stack.
 var visual_matrix: Array = []
 ## Container node holding all instantiated physical tile nodes in the Scene Tree.
@@ -73,19 +69,14 @@ func _initialize_containers() -> void:
 	tiles_container.name = TILES_NODE_NAME
 	add_child(tiles_container)
 
-## Allocates 2D arrays sized to match grid dimensions.
+## Allocates visual 2D matrix sized to match grid dimensions.
 func _initialize_matrix_database() -> void:
-	grid_matrix.clear()
 	visual_matrix.clear()
 	for x in range(GRID_WIDTH):
-		var row: Array[int] = []
 		var vis_row: Array = []
-		row.resize(GRID_DEPTH)
-		row.fill(-1) # -1 indicates empty ground
 		vis_row.resize(GRID_DEPTH)
 		for z in range(GRID_DEPTH):
 			vis_row[z] = []
-		grid_matrix.append(row)
 		visual_matrix.append(vis_row)
 
 ## Creates and caches reusable meshes, collisions, and materials.
@@ -119,19 +110,16 @@ func _precalculate_resources() -> void:
 
 
 # ==========================================
-# GRID DATA ACCESSORS
+# GRID DATA ACCESSORS (DELEGATED TO GRIDSERVICE)
 # ==========================================
 
 ## Returns the top layer level index stored at coordinates, or -1 if empty/out of bounds.
 func get_height_at(x: int, z: int) -> int:
-	if x >= 0 and x < GRID_WIDTH and z >= 0 and z < GRID_DEPTH:
-		return grid_matrix[x][z]
-	return -1
+	return Global.state.get_height_at(x, z)
 
 ## Directly sets the data matrix layer height value for given coordinates.
 func set_height_at(x: int, z: int, height: int) -> void:
-	if x >= 0 and x < GRID_WIDTH and z >= 0 and z < GRID_DEPTH:
-		grid_matrix[x][z] = height
+	Global.state.set_height_at(x, z, height)
 
 
 # ==========================================
@@ -143,10 +131,7 @@ func add_tile_at(x: int, level: int, z: int) -> void:
 	if x < 0 or x >= GRID_WIDTH or z < 0 or z >= GRID_DEPTH:
 		return
 		
-	var offset = CELL_SIZE / 2.0
-	var world_x = (x * CELL_SIZE) + offset
-	var world_y = (level * CELL_SIZE) + offset
-	var world_z = (z * CELL_SIZE) + offset
+	var world_pos = Global.state.grid_to_world(x, level, z)
 	
 	var tile = Tile.new()
 	tile.grid_pos = Vector2i(x, z)
@@ -165,7 +150,7 @@ func add_tile_at(x: int, level: int, z: int) -> void:
 	tile.add_child(collision_shape)
 	
 	tiles_container.add_child(tile)
-	tile.global_position = Vector3(world_x, world_y, world_z)
+	tile.global_position = world_pos
 	
 	visual_matrix[x][z].append(tile)
 	set_height_at(x, z, max(get_height_at(x, z), level))
@@ -204,7 +189,6 @@ func _on_placement_requested(map_pos: Vector2i, size: Vector3i) -> void:
 	var max_x := map_pos.x + size.x
 	var max_z := map_pos.y + size.z
 
-	# Add exactly size.y blocks above each cell's current height level
 	for x in range(map_pos.x, max_x):
 		for z in range(map_pos.y, max_z):
 			var current_top := get_height_at(x, z)
@@ -212,6 +196,7 @@ func _on_placement_requested(map_pos: Vector2i, size: Vector3i) -> void:
 				add_tile_at(x, current_top + 1 + dy, z)
 			
 	update_grid_line_network()
+	EventBus.board_changed.emit()
 	
 	var final_coords = Vector3i(map_pos.x, get_height_at(map_pos.x, map_pos.y), map_pos.y)
 	EventBus.block_placed.emit(final_coords, size, true)
@@ -223,7 +208,6 @@ func _on_removal_requested(map_pos: Vector2i, size: Vector3i) -> void:
 
 	var highest_tier := 0
 	
-	# 1. SCAN PASS: Single lightweight sweep to find peak height
 	for x in range(map_pos.x, max_x):
 		for z in range(map_pos.y, max_z):
 			var h := get_height_at(x, z)
@@ -235,21 +219,18 @@ func _on_removal_requested(map_pos: Vector2i, size: Vector3i) -> void:
 
 	var bottom_tier: int = max(1, highest_tier - size.y + 1)
 	
-	# 2. TARGETED ACTION PASS: Only visit columns that intersect [bottom_tier, highest_tier]
 	for x in range(map_pos.x, max_x):
 		for z in range(map_pos.y, max_z):
 			var col_height := get_height_at(x, z)
-			
-			# SKIP EARLY: If this column is below bottom_tier, don't even process it
 			if col_height < bottom_tier:
 				continue
 				
-			# Calculate exact number of removals needed for this column instantly
 			var remove_count: int = col_height - bottom_tier + 1
 			for i in range(remove_count):
 				remove_top_tile_at(x, z)
 
 	update_grid_line_network()
+	EventBus.board_changed.emit()
 
 	var final_coords := Vector3i(map_pos.x, highest_tier, map_pos.y)
 	EventBus.block_removed.emit(final_coords, size, true)
