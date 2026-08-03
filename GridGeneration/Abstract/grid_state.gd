@@ -39,6 +39,19 @@ func grid_to_world(x: int, height_level: int, z: int) -> Vector3:
 		(z * cell_size) + offset
 	)
 
+## Converts a 3D world position back into integer grid coordinates (X, Height Level, Z).
+func world_to_grid(world_pos: Vector3) -> Vector3i:
+	var x = floori(world_pos.x / cell_size)
+	var height_level = floori(world_pos.y / cell_size)
+	var z = floori(world_pos.z / cell_size)
+	return Vector3i(x, height_level, z)
+
+## Converts a 2D ground world position into 2D grid coordinates (X, Z).
+func world_to_grid_2d(world_pos: Vector3) -> Vector2i:
+	var x = floori(world_pos.x / cell_size)
+	var z = floori(world_pos.z / cell_size)
+	return Vector2i(x, z)
+
 ## Performs a deep copy of the board state for pawn pathfinding & AI projections.
 func clone() -> BoardState:
 	var copy = BoardState.new(width, depth, cell_size)
