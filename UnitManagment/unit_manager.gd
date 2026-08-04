@@ -45,6 +45,11 @@ func select_pawn(pawn: BasePawn) -> void:
 		return
 
 	selected_pawn = pawn
+	
+	# --- Mode Switch ---
+	# Switch hover raycasting to MOVE mode
+	Global.switch_play_mode(GData.PlayMode.MOVE)
+	
 	EventBus.pawn_selected.emit(selected_pawn)
 
 
@@ -54,6 +59,11 @@ func clear_selection() -> void:
 		return
 
 	selected_pawn = null
+	
+	# --- Mode Switch ---
+	# Switch hover raycasting to SELECT mode
+	Global.switch_play_mode(GData.PlayMode.SELECT)
+	
 	EventBus.pawn_deselected.emit()
 
 
@@ -91,24 +101,26 @@ func _on_pawn_move_requested(pawn: BasePawn, target_coord: Vector2i) -> void:
 		return
 
 	# 1. Re-validate request against board logic
-	var valid_moves = pawn.get_valid_moves(Global.board)
-	if not target_coord in valid_moves:
-		EventBus.pawn_moved.emit(pawn, target_coord, false)
+	if not _valid_move(pawn, target_coord):
 		return
 
 	# 2. Check and handle captures
-	var occupant = Global.board.get_unit_at(target_coord)
-	if occupant != null and occupant != pawn:
-		push_error("Tile already occupied, Not yet implemented effects")
+	_handle_occupant_interaction(pawn, target_coord)
 
 	# 3. Transfer position tracking on BoardState
+	await move_pawn(pawn, target_coord)
+
+	# 5. Complete state broadcast and clear selection
+	EventBus.pawn_moved.emit(pawn, target_coord, true)
+	clear_selection()
+
+func move_pawn(pawn : BasePawn, target_coord : Vector2i) -> void:
 	Global.board.set_unit_at(pawn.grid_pos, null)
 	Global.board.set_unit_at(target_coord, pawn)
-	
 	var old_coord = pawn.grid_pos
 	pawn.grid_pos = target_coord
 
-	# 4. Animate movement into world space
+	# Animate movement into world space
 	var target_height = Global.board.get_height_at(target_coord.x, target_coord.y)
 	var world_pos = Global.board.grid_to_world(target_coord.x, target_height, target_coord.y, true)
 
@@ -118,10 +130,19 @@ func _on_pawn_move_requested(pawn: BasePawn, target_coord: Vector2i) -> void:
 		.set_ease(Tween.EASE_OUT)
 
 	await tween.finished
+	return
 
-	# 5. Complete state broadcast and clear selection
-	EventBus.pawn_moved.emit(pawn, target_coord, true)
-	clear_selection()
+func _valid_move(pawn : BasePawn, target_coord : Vector2i) -> bool:
+	var valid_moves = pawn.get_valid_moves(Global.board)
+	if not target_coord in valid_moves:
+		EventBus.pawn_moved.emit(pawn, target_coord, false)
+		return false
+	return true
+
+func _handle_occupant_interaction(pawn : BasePawn, occupant_coord : Vector2i):
+	var occupant = Global.board.get_unit_at(occupant_coord)
+	if occupant != null and occupant != pawn:
+		push_error("Tile already occupied, Not yet implemented effects")
 
 func _on_board_changed() -> void:
 	for pawn in get_all_pawns():

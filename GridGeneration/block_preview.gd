@@ -26,6 +26,8 @@ const COLOR_OUTLINE_REMOVE_INVALID = Color(1.0, 0.2, 0.2, 0.95)
 		_update_visibility_state()
 		if preview_enabled:
 			_reprocess_last_tile()
+		else:
+			_restore_hidden_blocks()
 
 @export var mode: GData.BuildMode = GData.BuildMode.ADD:
 	set(value):
@@ -68,6 +70,7 @@ func _ready() -> void:
 
 
 func _connect_event_signals() -> void:
+	EventBus.game_mode_changed.connect(_on_game_mode_changed)
 	EventBus.build_mode_changed.connect(_on_build_mode_changed)
 	EventBus.block_placed.connect(_on_block_info)
 	EventBus.block_removed.connect(_on_block_info)
@@ -107,9 +110,16 @@ func _build_preview_nodes() -> void:
 # SIGNAL & TILE PROCESSING
 # ==========================================
 
+func _on_game_mode_changed(new_mode: GData.GameMode):
+	if new_mode != GData.GameMode.BUILD:
+		preview_enabled = false
+	else:
+		preview_enabled = true
+
+
 func _on_build_mode_changed(new_mode: GData.BuildMode) -> void:
 	mode = new_mode
-
+	
 
 func _on_block_info(_pos, _size, is_successful: bool) -> void: 
 	if is_successful: 

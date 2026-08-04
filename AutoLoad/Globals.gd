@@ -29,3 +29,15 @@ func switch_game_mode(mode = null) -> void:
 		var next_index: int = (current_index + 1) % all_modes.size()
 		
 		current_mode = all_modes[next_index]
+
+## Switches active mode between MOVE, SELECT, INTERACT, broadcasting the result globally.
+func switch_play_mode(mode = null) -> void:
+	if mode != null:
+		current_play_mode = mode
+	else:
+		# Cycle sequentially through all available enum values
+		var all_modes: Array = GData.PlayMode.values()
+		var current_index: int = all_modes.find(current_play_mode)
+		var next_index: int = (current_index + 1) % all_modes.size()
+		
+		current_play_mode = all_modes[next_index]
