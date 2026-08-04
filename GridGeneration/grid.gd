@@ -115,11 +115,11 @@ func _precalculate_resources() -> void:
 
 ## Returns the top layer level index stored at coordinates, or -1 if empty/out of bounds.
 func get_height_at(x: int, z: int) -> int:
-	return Global.state.get_height_at(x, z)
+	return Global.board.get_height_at(x, z)
 
 ## Directly sets the data matrix layer height value for given coordinates.
 func set_height_at(x: int, z: int, height: int) -> void:
-	Global.state.set_height_at(x, z, height)
+	Global.board.set_height_at(x, z, height)
 
 
 # ==========================================
@@ -131,7 +131,7 @@ func add_tile_at(x: int, level: int, z: int) -> void:
 	if x < 0 or x >= GRID_WIDTH or z < 0 or z >= GRID_DEPTH:
 		return
 		
-	var world_pos = Global.state.grid_to_world(x, level, z)
+	var world_pos = Global.board.grid_to_world(x, level, z)
 	
 	var tile = Tile.new()
 	tile.grid_pos = Vector2i(x, z)

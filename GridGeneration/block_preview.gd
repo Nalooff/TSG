@@ -69,7 +69,8 @@ func _ready() -> void:
 
 func _connect_event_signals() -> void:
 	EventBus.build_mode_changed.connect(_on_build_mode_changed)
-	EventBus.block_placed.connect(_on_block_placed)
+	EventBus.block_placed.connect(_on_block_info)
+	EventBus.block_removed.connect(_on_block_info)
 	EventBus.tile_hovered.connect(_on_tile_hovered)
 
 
@@ -110,7 +111,7 @@ func _on_build_mode_changed(new_mode: GData.BuildMode) -> void:
 	mode = new_mode
 
 
-func _on_block_placed(_pos, _size, is_successful: bool) -> void: 
+func _on_block_info(_pos, _size, is_successful: bool) -> void: 
 	if is_successful: 
 		_restore_hidden_blocks()
 		_reprocess_last_tile()

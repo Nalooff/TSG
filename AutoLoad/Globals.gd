@@ -3,8 +3,8 @@ extends Node
 var current_mode: GData.GameMode = GData.GameMode.BUILD
 var current_play_mode: GData.PlayMode = GData.PlayMode.SELECT
 var current_build_mode: GData.BuildMode = GData.BuildMode.ADD
-## Active state of the board accessible anywhere: GridService.state
-var state: BoardState = BoardState.new(GData.GRID_WIDTH, GData.GRID_DEPTH, GData.CELL_SIZE)
+## Active state of the board accessible anywhere: GridService.board
+var board: BoardState = BoardState.new(GData.GRID_WIDTH, GData.GRID_DEPTH, GData.CELL_SIZE)
 
 ## Switches active mode between ADD and REMOVE, broadcasting the result globally.
 func switch_build_mode(mode = null) -> void:

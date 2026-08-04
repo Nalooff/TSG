@@ -59,8 +59,11 @@ func _notify_pawn_hover(pawn: BasePawn) -> void:
 
 func _notify_tile_hover(hit: Dictionary) -> void:
 	var sample_pos = hit.position + (hit.normal * (0.1 if hit.normal.y <= 0.5 else -0.1))
-	var gx = clampi(int(floor(sample_pos.x / GData.CELL_SIZE)), 0, GData.GRID_WIDTH - 1)
-	var gz = clampi(int(floor(sample_pos.z / GData.CELL_SIZE)), 0, GData.GRID_DEPTH - 1)
+	var grid_coord = Global.board.world_to_grid_2d(sample_pos)
+	
+	# Clamp to board dimensions safely
+	var gx = clampi(grid_coord.x, 0, Global.board.width - 1)
+	var gz = clampi(grid_coord.y, 0, Global.board.depth - 1)
 
 	if gx != _last_gx or gz != _last_gz:
 		_last_gx = gx

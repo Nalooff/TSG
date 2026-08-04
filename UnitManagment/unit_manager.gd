@@ -11,7 +11,10 @@ var selected_pawn: BasePawn
 func _ready() -> void:
 	_initialize_connection()
 	_initialize_containers()
-
+	var pawn_scene = load("uid://ex7q0ctfewon")
+		
+	if pawn_scene:
+		spawn_pawn(pawn_scene, Vector2i(0, 0))
 
 ## Prepares a dedicated scene node for child pawns to prevent hierarchy clutter.
 func _initialize_containers() -> void:
@@ -26,6 +29,7 @@ func _initialize_containers() -> void:
 
 func _initialize_connection():
 	EventBus.pawn_move_requested.connect(_on_pawn_move_requested)
+	EventBus.board_changed.connect(_on_board_changed)
 # ===============================================
 # SELECTION MANAGEMENT
 # ===============================================
@@ -52,8 +56,6 @@ func clear_selection() -> void:
 	selected_pawn = null
 	EventBus.pawn_deselected.emit()
 
-func _on_pawn_move_requested(pawn, pos):
-	pass
 
 # ===============================================
 # PAWN SPANNING & LIFECYCLE
@@ -72,14 +74,73 @@ func spawn_pawn(pawn_scene: PackedScene, grid_pos: Vector2i) -> BasePawn:
 
 	pawn_container.add_child(pawn_instance)
 	
-	# Set initial position based on grid cell size
-	var world_x = grid_pos.x * GData.CELL_SIZE + (GData.CELL_SIZE / 2.0)
-	var world_z = grid_pos.y * GData.CELL_SIZE + (GData.CELL_SIZE / 2.0)
-	pawn_instance.global_position = Vector3(world_x, 0.0, world_z)
+	# Store tracking info
+	pawn_instance.grid_pos = grid_pos
+	Global.board.set_unit_at(grid_pos, pawn_instance)
+	
+	# Set 3D visual position including height
+	var height = Global.board.get_height_at(grid_pos.x, grid_pos.y)
+	pawn_instance.global_position = Global.board.grid_to_world(grid_pos.x, height, grid_pos.y, true)
 
 	EventBus.pawn_registered.emit(pawn_instance)
 	return pawn_instance
 
+
+func _on_pawn_move_requested(pawn: BasePawn, target_coord: Vector2i) -> void:
+	if not is_instance_valid(pawn):
+		return
+
+	# 1. Re-validate request against board logic
+	var valid_moves = pawn.get_valid_moves(Global.board)
+	if not target_coord in valid_moves:
+		EventBus.pawn_moved.emit(pawn, target_coord, false)
+		return
+
+	# 2. Check and handle captures
+	var occupant = Global.board.get_unit_at(target_coord)
+	if occupant != null and occupant != pawn:
+		push_error("Tile already occupied, Not yet implemented effects")
+
+	# 3. Transfer position tracking on BoardState
+	Global.board.set_unit_at(pawn.grid_pos, null)
+	Global.board.set_unit_at(target_coord, pawn)
+	
+	var old_coord = pawn.grid_pos
+	pawn.grid_pos = target_coord
+
+	# 4. Animate movement into world space
+	var target_height = Global.board.get_height_at(target_coord.x, target_coord.y)
+	var world_pos = Global.board.grid_to_world(target_coord.x, target_height, target_coord.y, true)
+
+	var tween = create_tween()
+	tween.tween_property(pawn, "global_position", world_pos, 0.25)\
+		.set_trans(Tween.TRANS_CUBIC)\
+		.set_ease(Tween.EASE_OUT)
+
+	await tween.finished
+
+	# 5. Complete state broadcast and clear selection
+	EventBus.pawn_moved.emit(pawn, target_coord, true)
+	clear_selection()
+
+func _on_board_changed() -> void:
+	for pawn in get_all_pawns():
+		pawn = pawn as BasePawn
+		var tile_coord = pawn.grid_pos
+		_adjust_pawn_to_tile_height(pawn, tile_coord)
+
+func _adjust_pawn_to_tile_height(pawn: BasePawn, coord: Vector2i) -> void:
+	# 1. Fetch updated tier height from BoardState (which now includes size.y)
+	var current_tier = Global.board.get_height_at(coord.x, coord.y)
+	
+	# 2. Get 3D world position at top face (atop = true)
+	var target_world_pos = Global.board.grid_to_world(coord.x, current_tier, coord.y, true)
+	
+	# 3. Animate or snap pawn to target height
+	var tween = create_tween()
+	tween.tween_property(pawn, "global_position:y", target_world_pos.y, 0.15)\
+		.set_trans(Tween.TRANS_SPRING)\
+		.set_ease(Tween.EASE_OUT)
 
 ## Removes a pawn from the board and handles cleanup if it was selected.
 func despawn_pawn(pawn: BasePawn = selected_pawn) -> void:
@@ -112,7 +173,4 @@ func get_all_pawns() -> Array[BasePawn]:
 
 ## Finds a pawn occupying a specific grid coordinate, if any.
 func get_pawn_at_grid_pos(grid_pos: Vector2i) -> BasePawn:
-	for pawn in get_all_pawns():
-		if "grid_pos" in pawn and pawn.grid_pos == grid_pos:
-			return pawn
-	return null
+	return Global.board.get_unit_at(grid_pos)

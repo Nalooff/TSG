@@ -7,6 +7,10 @@ var cell_size: float
 ## 2D Matrix storing heights (-1 for empty, 0+ for block height levels)
 var matrix: Array[Array] = []
 
+## 2D Matrix storing BasePawn references (or null)
+var unit_matrix: Dictionary = {} # Key: Vector2i, Value: BasePawn
+
+
 func _init(p_width: int, p_depth: int, p_cell_size: float) -> void:
 	width = p_width
 	depth = p_depth
@@ -30,14 +34,26 @@ func set_height_at(x: int, z: int, height: int) -> void:
 	if x >= 0 and x < width and z >= 0 and z < depth:
 		matrix[x][z] = height
 
+##
+func set_unit_at(coord: Vector2i, pawn: BasePawn) -> void:
+	if pawn == null:
+		unit_matrix.erase(coord)
+	else:
+		unit_matrix[coord] = pawn
+
+##
+func get_unit_at(coord: Vector2i) -> BasePawn:
+	return unit_matrix.get(coord, null)
+
+##
+func is_occupied(coord: Vector2i) -> bool:
+	return unit_matrix.has(coord)
+
 ## Helper to convert grid coordinates + height level directly into 3D world space.
-func grid_to_world(x: int, height_level: int, z: int) -> Vector3:
+func grid_to_world(x: int, height_level: int, z: int, atop: bool = false) -> Vector3:
 	var offset = cell_size / 2.0
-	return Vector3(
-		(x * cell_size) + offset,
-		(height_level * cell_size) + offset,
-		(z * cell_size) + offset
-	)
+	var y_pos = (height_level + 1.0) * cell_size if atop else (height_level * cell_size) + offset
+	return Vector3((x * cell_size) + offset, y_pos, (z * cell_size) + offset)
 
 ## Converts a 3D world position back into integer grid coordinates (X, Height Level, Z).
 func world_to_grid(world_pos: Vector3) -> Vector3i:
