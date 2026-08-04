@@ -117,7 +117,6 @@ func _on_pawn_move_requested(pawn: BasePawn, target_coord: Vector2i) -> void:
 func move_pawn(pawn : BasePawn, target_coord : Vector2i) -> void:
 	Global.board.set_unit_at(pawn.grid_pos, null)
 	Global.board.set_unit_at(target_coord, pawn)
-	var old_coord = pawn.grid_pos
 	pawn.grid_pos = target_coord
 
 	# Animate movement into world space
