@@ -37,14 +37,17 @@ func _update_hover_state() -> void:
 
 	# 2. Perform Raycast
 	var query = PhysicsRayQueryParameters3D.create(ray_origin, ray_end, mask)
+	query.collide_with_areas = true
 	var hit = grid.get_world_3d().direct_space_state.intersect_ray(query)
 
 	if hit.is_empty():
 		return
-
+	
+	var hit_type : CollisionObject3D = hit.collider
+	
 	# 3. Process Raycast Result
-	if hit.collider is BasePawn:
-		_notify_pawn_hover(hit.collider as BasePawn)
+	if hit_type.owner is BasePawn:
+		_notify_pawn_hover(hit_type.owner as BasePawn)
 		_clear_tile_hover()
 	else:
 		_notify_tile_hover(hit)

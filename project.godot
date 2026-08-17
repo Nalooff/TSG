@@ -23,6 +23,7 @@ Global="*res://AutoLoad/Globals.gd"
 
 [debug]
 
+gdscript/warnings/unused_signal=0
 event_bus/config/show_argument_names=false
 event_bus/config/show_emitter_line_number=true
 event_bus/config/show_receiver_line_number=false

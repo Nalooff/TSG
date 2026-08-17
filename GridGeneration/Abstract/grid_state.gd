@@ -62,7 +62,7 @@ func world_to_grid(world_pos: Vector3) -> Vector3i:
 	var z = floori(world_pos.z / cell_size)
 	return Vector3i(x, height_level, z)
 
-## Converts a 2D ground world position into 2D grid coordinates (X, Z).
+## Converts a 3D world position back into 2D grid coordinates (X, Z).
 func world_to_grid_2d(world_pos: Vector3) -> Vector2i:
 	var x = floori(world_pos.x / cell_size)
 	var z = floori(world_pos.z / cell_size)
