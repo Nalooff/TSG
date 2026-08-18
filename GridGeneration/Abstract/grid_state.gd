@@ -1,90 +1,102 @@
 extends RefCounted
 class_name BoardState
 
+## Width dimension of the grid (number of columns along X).
 var width: int
+
+## Depth dimension of the grid (number of rows along Z).
 var depth: int
+
+## World size scale factor for each tile cell.
 var cell_size: float
 
-## 2D Matrix storing heights (-1 for empty, 0+ for block height levels)
-var matrix: Array[Array] = []
+## Flattened 1D array storing grid cell heights (-1 for void/unreachable, 0+ for ground levels).
+var matrix: PackedInt32Array = PackedInt32Array()
 
-## Dictionary mapping Vector2i grid position to BasePawn references
+## Spatial lookup dictionary mapping Vector2i coordinates to BasePawn instances.
 var unit_matrix: Dictionary = {}
 
+## Initializes grid dimensions and allocates memory for the height matrix.
 func _init(p_width: int, p_depth: int, p_cell_size: float) -> void:
 	width = p_width
 	depth = p_depth
 	cell_size = p_cell_size
 	
-	matrix.clear()
-	for x in range(width):
-		var row: Array[int] = []
-		row.resize(depth)
-		row.fill(-1)
-		matrix.append(row)
+	matrix.resize(width * depth)
+	matrix.fill(-1)
 
 # ==========================================================
-# GRID & HEIGHT QUERIES
+# FAST GRID QUERIES
 # ==========================================================
 
-## Returns true if the coordinates fall within map bounds and contain ground.
+## Returns true if coordinates are within map bounds and point to traversable ground.
 func is_valid_tile(coord: Vector2i) -> bool:
-	if coord.x >= 0 and coord.x < width and coord.y >= 0 and coord.y < depth:
-		return matrix[coord.x][coord.y] != -1
-	return false
+	return coord.x >= 0 and coord.x < width and coord.y >= 0 and coord.y < depth and matrix[coord.x + coord.y * width] != -1
 
-## Returns the top height level at coordinates, or -1 if empty/out of bounds.
+## Returns ground height at given coordinates, or -1 if out of bounds/void.
 func get_height_at(coord: Vector2i) -> int:
-	if is_valid_tile(coord):
-		return matrix[coord.x][coord.y]
+	if coord.x >= 0 and coord.x < width and coord.y >= 0 and coord.y < depth:
+		return matrix[coord.x + coord.y * width]
 	return -1
 
-## Directly updates the data matrix layer height value using a Vector2i grid position.
+## Sets ground height value at target grid coordinates.
 func set_height_at(coord: Vector2i, height: int) -> void:
 	if coord.x >= 0 and coord.x < width and coord.y >= 0 and coord.y < depth:
-		matrix[coord.x][coord.y] = height
+		matrix[coord.x + coord.y * width] = height
 
 # ==========================================================
-# UNIT MANAGEMENT & OCCUPANCY
+# UNIT MANAGEMENT
 # ==========================================================
 
+## Registers or removes a pawn at target grid coordinates.
 func set_unit_at(coord: Vector2i, pawn: BasePawn) -> void:
 	if pawn == null:
 		unit_matrix.erase(coord)
 	else:
 		unit_matrix[coord] = pawn
 
+## Retrieves the pawn located at given coordinates, or null if empty.
 func get_unit_at(coord: Vector2i) -> BasePawn:
 	return unit_matrix.get(coord, null)
 
+## Returns true if a pawn currently occupies target coordinates.
 func is_occupied(coord: Vector2i) -> bool:
 	return unit_matrix.has(coord)
 
 # ==========================================================
-# INTERCEPTION & REACTION PROCESSOR
+# FAST ZOC INTERCEPTION CACHE
 # ==========================================================
 
-## Evaluates reactive threat zones projected by enemy pawns for a step target tile.
-func process_zoc_interceptions(moving_unit: BasePawn, from_pos: Vector2i, to_pos: Vector2i, state: Dictionary) -> void:
+## Pre-calculates and caches all enemy Zone of Control threat regions before running pathfinding.
+func cache_enemy_zocs_for(moving_unit: BasePawn) -> Array[Dictionary]:
+	var zoc_cache: Array[Dictionary] = []
+	
 	for pos in unit_matrix:
-		var enemy = unit_matrix[pos]
-		if enemy == null or enemy == moving_unit:
+		var enemy: BasePawn = unit_matrix[pos]
+		if enemy == null or enemy == moving_unit or enemy.team_id == moving_unit.team_id:
 			continue
 			
 		var zoc_dict: Dictionary = enemy.get_zones_of_control(self, moving_unit)
-		
 		for tag in zoc_dict.keys():
 			var payload: Dictionary = zoc_dict[tag]
-			var zoc_team_id: int = payload["team_id"]
-			var zoc_tiles: Array = payload["tiles"]
+			zoc_cache.append({
+				"enemy": enemy,
+				"tag": tag,
+				"tiles": payload["tiles"]
+			})
 			
-			# Only trigger if the moving unit belongs to an opposing team
-			if zoc_team_id != moving_unit.team_id:
-				if to_pos in zoc_tiles:
-					enemy.trigger_zoc_effect(tag, moving_unit, from_pos, to_pos, state)
+	return zoc_cache
 
-## Returns a list of all active ZoC threat payloads covering a specific tile.
-## Useful for threat overlays, AI evaluation, or hazard checks.
+## Checks pre-calculated enemy ZoC coverage and triggers reaction callbacks if entered.
+func process_cached_zoc_interceptions(moving_unit: BasePawn, from_pos: Vector2i, to_pos: Vector2i, state: Dictionary, zoc_cache: Array[Dictionary]) -> void:
+	for entry in zoc_cache:
+		var zoc_tiles: Array = entry["tiles"]
+		if to_pos in zoc_tiles:
+			var enemy: BasePawn = entry["enemy"]
+			var tag: String = entry["tag"]
+			enemy.trigger_zoc_effect(tag, moving_unit, from_pos, to_pos, state)
+
+## Returns a list of all active threat payloads covering target coordinates for UI or AI checks.
 func get_zoc_threats_at(target_pos: Vector2i, asking_unit: BasePawn) -> Array[Dictionary]:
 	var active_threats: Array[Dictionary] = []
 	
@@ -109,7 +121,7 @@ func get_zoc_threats_at(target_pos: Vector2i, asking_unit: BasePawn) -> Array[Di
 # RULES & DISRUPTION HELPERS
 # ==========================================================
 
-# Checks if a unit is Disrupted (out of command range of all allied Commanders).
+## Returns true if a pawn is out of range of all allied commanders and susceptible to disruption penalties.
 func is_unit_disrupted(pawn: BasePawn) -> bool:
 	if not pawn.can_be_disrupted:
 		return false
@@ -124,7 +136,7 @@ func is_unit_disrupted(pawn: BasePawn) -> bool:
 
 	return true
 
-## Returns all active commanders belonging to a given team.
+## Collects and returns all active commander pawns belonging to a specific team.
 func get_all_commanders_for_team(team_id: int) -> Array[BasePawn]:
 	var commanders: Array[BasePawn] = []
 	for pos in unit_matrix:
@@ -133,15 +145,14 @@ func get_all_commanders_for_team(team_id: int) -> Array[BasePawn]:
 			commanders.append(pawn)
 	return commanders
 
-## Returns all pawns within a Chebyshev distance of `radius` from center.
-## filter_enemies = true returns enemies, false returns team members, null returns all pawns.
+## Returns all pawns within a Chebyshev distance radius from center, optionally filtered by team.
 func get_adjacent_pawns(center: Vector2i, radius: int = 1, team_id: int = -1, filter_enemies: Variant = null) -> Array[BasePawn]:
 	var results: Array[BasePawn] = []
 	
 	for dx in range(-radius, radius + 1):
 		for dz in range(-radius, radius + 1):
 			if dx == 0 and dz == 0:
-				continue # Skip center tile
+				continue
 				
 			var check_pos = center + Vector2i(dx, dz)
 			var unit = get_unit_at(check_pos)
@@ -154,38 +165,40 @@ func get_adjacent_pawns(center: Vector2i, radius: int = 1, team_id: int = -1, fi
 					if unit.team_id == team_id:
 						results.append(unit)
 				else:
-					results.append(unit) # No team filter applied
+					results.append(unit)
 	return results
 
 # ==========================================================
 # COORDINATE CONVERSIONS & CLONING
 # ==========================================================
 
-## Helper to convert grid coordinates + height level directly into 3D world space.
+## Converts 2D grid coordinates and elevation level into 3D world space position.
 func grid_to_world(x: int, height_level: int, z: int, atop: bool = false) -> Vector3:
-	var offset = cell_size / 2.0
+	var offset = cell_size * 0.5
 	var y_pos = (height_level + 1.0) * cell_size if atop else (height_level * cell_size) + offset
 	return Vector3((x * cell_size) + offset, y_pos, (z * cell_size) + offset)
 
-## Converts a 3D world position back into integer grid coordinates (X, Height Level, Z).
+## Converts 3D world coordinates into integer grid coordinates (X, Height, Z).
 func world_to_grid(world_pos: Vector3) -> Vector3i:
-	var x = floori(world_pos.x / cell_size)
-	var height_level = floori(world_pos.y / cell_size)
-	var z = floori(world_pos.z / cell_size)
-	return Vector3i(x, height_level, z)
+	var inv_cell = 1.0 / cell_size
+	return Vector3i(
+		floori(world_pos.x * inv_cell),
+		floori(world_pos.y * inv_cell),
+		floori(world_pos.z * inv_cell)
+	)
 
-## Converts a 3D world position back into 2D grid coordinates (X, Z).
+## Converts 3D world coordinates into 2D grid coordinates (X, Z).
 func world_to_grid_2d(world_pos: Vector3) -> Vector2i:
-	var x = floori(world_pos.x / cell_size)
-	var z = floori(world_pos.z / cell_size)
-	return Vector2i(x, z)
+	var inv_cell = 1.0 / cell_size
+	return Vector2i(
+		floori(world_pos.x * inv_cell),
+		floori(world_pos.z * inv_cell)
+	)
 
-## Performs a deep copy of the board state for pawn pathfinding & AI projections.
+## Performs a deep copy of the board state for pathfinding simulation and AI evaluation.
 func clone() -> BoardState:
 	var copy = BoardState.new(width, depth, cell_size)
-	for x in range(width):
-		for z in range(depth):
-			copy.matrix[x][z] = matrix[x][z]
+	copy.matrix = matrix.duplicate()
 	for key in unit_matrix:
 		copy.unit_matrix[key] = unit_matrix[key]
 	return copy
