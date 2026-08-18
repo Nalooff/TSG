@@ -14,7 +14,9 @@ func _ready() -> void:
 	var pawn_scene = load("uid://ex7q0ctfewon")
 		
 	if pawn_scene:
-		spawn_pawn(pawn_scene, Vector2i(0, 0))
+		var pawn = spawn_pawn(pawn_scene, Vector2i(0, 0))
+		pawn.can_be_disrupted = false
+		pawn._use_los = false
 
 ## Prepares a dedicated scene node for child pawns to prevent hierarchy clutter.
 func _initialize_containers() -> void:

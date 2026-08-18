@@ -61,20 +61,67 @@ func is_occupied(coord: Vector2i) -> bool:
 	return unit_matrix.has(coord)
 
 # ==========================================================
+# INTERCEPTION & REACTION PROCESSOR
+# ==========================================================
+
+## Evaluates reactive threat zones projected by enemy pawns for a step target tile.
+func process_zoc_interceptions(moving_unit: BasePawn, from_pos: Vector2i, to_pos: Vector2i, state: Dictionary) -> void:
+	for pos in unit_matrix:
+		var enemy = unit_matrix[pos]
+		if enemy == null or enemy == moving_unit:
+			continue
+			
+		var zoc_dict: Dictionary = enemy.get_zones_of_control(self, moving_unit)
+		
+		for tag in zoc_dict.keys():
+			var payload: Dictionary = zoc_dict[tag]
+			var zoc_team_id: int = payload["team_id"]
+			var zoc_tiles: Array = payload["tiles"]
+			
+			# Only trigger if the moving unit belongs to an opposing team
+			if zoc_team_id != moving_unit.team_id:
+				if to_pos in zoc_tiles:
+					enemy.trigger_zoc_effect(tag, moving_unit, from_pos, to_pos, state)
+
+## Returns a list of all active ZoC threat payloads covering a specific tile.
+## Useful for threat overlays, AI evaluation, or hazard checks.
+func get_zoc_threats_at(target_pos: Vector2i, asking_unit: BasePawn) -> Array[Dictionary]:
+	var active_threats: Array[Dictionary] = []
+	
+	for pos in unit_matrix:
+		var pawn = unit_matrix[pos]
+		if pawn == null or pawn == asking_unit or pawn.team_id == asking_unit.team_id:
+			continue
+			
+		var zoc_dict = pawn.get_zones_of_control(self, asking_unit)
+		for tag in zoc_dict.keys():
+			var payload = zoc_dict[tag]
+			if target_pos in payload["tiles"]:
+				active_threats.append({
+					"tag": tag,
+					"team_id": payload["team_id"],
+					"source_unit": payload["source_unit"]
+				})
+				
+	return active_threats
+
+# ==========================================================
 # RULES & DISRUPTION HELPERS
 # ==========================================================
 
-## Chapter VI: Checks if a unit is Disrupted (Chebyshev distance to nearest allied Commander > 4).
+# Checks if a unit is Disrupted (out of command range of all allied Commanders).
 func is_unit_disrupted(pawn: BasePawn) -> bool:
+	if not pawn.can_be_disrupted:
+		return false
+
 	var commanders = get_all_commanders_for_team(pawn.team_id)
-	if commanders.is_empty():
-		return true # No active commanders means all units are disrupted
-		
+	if pawn in commanders:
+		return false
+
 	for commander in commanders:
-		var dist = max(abs(pawn.grid_pos.x - commander.grid_pos.x), abs(pawn.grid_pos.y - commander.grid_pos.y))
-		if dist <= 4:
-			return false # In Command
-			
+		if commander.is_in_command_range(pawn.grid_pos):
+			return false
+
 	return true
 
 ## Returns all active commanders belonging to a given team.
@@ -82,8 +129,7 @@ func get_all_commanders_for_team(team_id: int) -> Array[BasePawn]:
 	var commanders: Array[BasePawn] = []
 	for pos in unit_matrix:
 		var pawn = unit_matrix[pos]
-		# Checks if the unit has an 'is_commander' property set to true
-		if pawn != null and pawn.team_id == team_id and pawn.get("is_commander") == true:
+		if pawn != null and pawn.team_id == team_id and pawn.command_radius > 0:
 			commanders.append(pawn)
 	return commanders
 
