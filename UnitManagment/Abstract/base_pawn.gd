@@ -38,7 +38,7 @@ var _zoc_getters_cache: Dictionary = {}
 ## Cached reflection map binding target tags to their respective "zoc_effect_" reaction methods.
 var _zoc_effects_cache: Dictionary = {}
 
-## Godot lifecycle callback. Connects signals and builds the dynamic method cache for performance.
+
 func _ready() -> void:
 	if EventBus.has_signal("camera_changed"):
 		EventBus.connect("camera_changed", _on_cam_changed)

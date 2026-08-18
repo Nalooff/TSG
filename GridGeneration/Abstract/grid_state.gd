@@ -28,21 +28,24 @@ func _init(p_width: int, p_depth: int, p_cell_size: float) -> void:
 # ==========================================================
 # FAST GRID QUERIES
 # ==========================================================
+## Converts a 2D grid coordinate into a 1D flat matrix index.
+func to_idx(coord: Vector2i) -> int:
+	return coord.x + coord.y * width
 
 ## Returns true if coordinates are within map bounds and point to traversable ground.
 func is_valid_tile(coord: Vector2i) -> bool:
-	return coord.x >= 0 and coord.x < width and coord.y >= 0 and coord.y < depth and matrix[coord.x + coord.y * width] != -1
+	return coord.x >= 0 and coord.x < width and coord.y >= 0 and coord.y < depth and matrix[to_idx(coord)] != -1
 
 ## Returns ground height at given coordinates, or -1 if out of bounds/void.
 func get_height_at(coord: Vector2i) -> int:
 	if coord.x >= 0 and coord.x < width and coord.y >= 0 and coord.y < depth:
-		return matrix[coord.x + coord.y * width]
+		return matrix[to_idx(coord)]
 	return -1
 
 ## Sets ground height value at target grid coordinates.
 func set_height_at(coord: Vector2i, height: int) -> void:
 	if coord.x >= 0 and coord.x < width and coord.y >= 0 and coord.y < depth:
-		matrix[coord.x + coord.y * width] = height
+		matrix[to_idx(coord)] = height
 
 # ==========================================================
 # UNIT MANAGEMENT
