@@ -1,122 +1,176 @@
 extends Node3D
 class_name BasePawn
 
-enum MoveType { STEP, SLIDE, JUMP }
-
 @export_group("Base Stats")
 @export var team_id: int = 0
-@export var move_range: int = 3
-@export var attack_range: int = 1
-
-@export_group("Elevation Rules")
-@export var max_step_up: int = 1     ## Max height difference the pawn can climb up in 1 step
-@export var max_step_down: int = 2   ## Max height difference the pawn can drop down in 1 step
+@export var base_mp: int = 3
 
 var grid_pos: Vector2i
 
-
-
-# Called when the node enters the scene tree for the first time.
 func _ready():
-	EventBus.connect("camera_changed", _on_cam_changed)
-	pass # Replace with function body.
-
-
-# Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(_delta):
-	pass
-
+	if EventBus.has_signal("camera_changed"):
+		EventBus.connect("camera_changed", _on_cam_changed)
 
 # ==========================================================
 # PUBLIC API
 # ==========================================================
 
-## Called by UI / Preview system. Calculates all reachable tiles.
+## Returns all tiles this pawn can legitimately reach this turn.
 func get_valid_moves(board_state: BoardState) -> Array[Vector2i]:
-	var valid: Array[Vector2i] = []
-	var rules = _get_movement_rules()
+	var valid_moves: Array[Vector2i] = []
+	var total_mp = get_effective_mp(board_state)
 	
-	for rule in rules:
-		valid.append_array(_evaluate_rule(board_state, rule))
-		
-	# Allow subclasses to inject/filter moves directly
-	_custom_movement_rules(board_state, valid)
+	# 1. Dijkstra Pathfinding driven by subclass rules
+	var reachable_paths = _calculate_reachable_tiles(board_state, total_mp)
 	
-	return valid
+	# 2. Filter destinations against Chapter I Line of Sight (LOS) Rule
+	for dest in reachable_paths.keys():
+		if has_line_of_sight(board_state, grid_pos, dest):
+			valid_moves.append(dest)
+			
+	return valid_moves
 
+## Standard Disruption penalty check (Chapter VI). Override in subclass for extra turn-start penalties.
+func get_effective_mp(board_state: BoardState) -> int:
+	var mp = base_mp
+	if board_state.is_unit_disrupted(self):
+		mp = max(1, mp / 2) # Halved, rounded down, min 1
+	return mp
 
 # ==========================================================
-# OVERRIDABLE HOOKS FOR SUBCLASSES
+# OVERRIDABLE MOVEMENT HOOKS (FOR SUBCLASSES)
 # ==========================================================
 
-## Subclasses return their directions, move types, and max range here.
-func _get_movement_rules() -> Array[Dictionary]:
-	# Default Pawn: 4 cardinal directions, step-by-step walking up to move_range
-	return [{
-		"directions": [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT],
-		"type": MoveType.STEP,
-		"range": move_range
-	}]
+## Subclasses specify which directions they can test (default: 8-directional).
+func _get_allowed_directions() -> Array[Vector2i]:
+	return [
+		Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT,
+		Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)
+	]
 
-## Subclasses can override this for special conditions (e.g. conditional moves, passives).
-func _custom_movement_rules(_board_state: BoardState, _out_moves: Array[Vector2i]) -> void:
+## Subclasses calculate step MP cost. Return -1 if the step is illegal (e.g., wall too high).
+func _calculate_step_cost(_board: BoardState, _from: Vector2i, _to: Vector2i, curr_h: int, next_h: int, _state: Dictionary) -> int:
+	var delta_h = next_h - curr_h
+	if delta_h > 1 or delta_h < -2:
+		return -1 # Invalid default step height
+	return 1
+
+## Subclasses override this to enforce direction locks, path constraints, or mid-movement stops.
+func _is_step_allowed(_board: BoardState, _from: Vector2i, _to: Vector2i, _dir: Vector2i, _state: Dictionary) -> bool:
+	return true
+
+## Hook called when entering a step. Allows subclasses to modify state (e.g., zero remaining MP on interception).
+func _on_step_entered(_board: BoardState, _pos: Vector2i, _state: Dictionary) -> void:
 	pass
 
-
 # ==========================================================
-# CORE EVALUATION ENGINE
+# CORE DIJKSTRA PATHFINDING ENGINE
 # ==========================================================
 
-func _evaluate_rule(board_state: BoardState, rule: Dictionary) -> Array[Vector2i]:
-	var results: Array[Vector2i] = []
-	var dirs: Array = rule.get("directions", [])
-	var move_type: MoveType = rule.get("type", MoveType.STEP)
-	var max_steps: int = rule.get("range", 1)
+func _calculate_reachable_tiles(board_state: BoardState, start_mp: int) -> Dictionary:
+	# Dictionary mapping destination (Vector2i) -> minimum MP remaining
+	var visited = {}
 	
-	for dir in dirs:
-		var curr_pos = grid_pos
-		var curr_height = board_state.get_height_at(curr_pos.x, curr_pos.y)
+	# Open set elements track: pos, remaining MP, climbs count, and path history
+	var queue: Array[Dictionary] = []
+	queue.append({
+		"pos": grid_pos,
+		"mp": start_mp,
+		"climbs": 0,
+		"path": [grid_pos]
+	})
+	
+	var allowed_directions = _get_allowed_directions()
+
+	while queue.size() > 0:
+		# Process node with the most remaining MP first
+		queue.sort_custom(func(a, b): return a["mp"] > b["mp"])
+		var current = queue.pop_front()
 		
-		for step in range(1, max_steps + 1):
+		var curr_pos: Vector2i = current["pos"]
+		var curr_mp: int = current["mp"]
+
+		if visited.has(curr_pos) and visited[curr_pos] >= curr_mp:
+			continue
+			
+		visited[curr_pos] = curr_mp
+
+		# Stop exploring outward from this tile if MP is exhausted
+		if curr_mp <= 0:
+			continue
+
+		for dir in allowed_directions:
 			var next_pos = curr_pos + dir
-			var next_height = board_state.get_height_at(next_pos.x, next_pos.y)
 			
-			# 1. Ground existence check
-			if next_height == -1:
-				break
+			if not board_state.is_valid_tile(next_pos):
+				continue
 				
-			# 2. Elevation check (unless jumping)
-			if move_type != MoveType.JUMP:
-				var height_diff = next_height - curr_height
-				if height_diff > max_step_up or height_diff < -max_step_down:
-					break # Wall too high or drop too steep
-			
-			# 3. Occupancy check
+			# Check custom movement constraints (e.g., straight-line lock)
+			if not _is_step_allowed(board_state, curr_pos, next_pos, dir, current):
+				continue
+
 			var occupant = board_state.get_unit_at(next_pos)
+			if occupant != null:
+				continue # Occupied tiles block movement
+				
+			var curr_h = board_state.get_height_at(curr_pos)
+			var next_h = board_state.get_height_at(next_pos)
 			
-			if move_type == MoveType.JUMP:
-				# Jumper only evaluates destination at max step
-				if step == max_steps:
-					if occupant == null or occupant.team_id != self.team_id:
-						results.append(next_pos)
-			else:
-				# Walkers / Sliders check every tile along the way
-				if occupant != null:
-					# Friendly unit blocks movement; enemy unit might be attackable depending on game design
-					break
-				results.append(next_pos)
+			# Calculate step cost via subclass rules
+			var step_cost = _calculate_step_cost(board_state, curr_pos, next_pos, curr_h, next_h, current)
+			if step_cost < 0 or curr_mp < step_cost:
+				continue # Step impossible or not enough MP
+				
+			# Construct next search state
+			var next_path = current["path"].duplicate()
+			next_path.append(next_pos)
 			
-			curr_pos = next_pos
-			curr_height = next_height
-			
-	return results
+			var next_state = {
+				"pos": next_pos,
+				"mp": curr_mp - step_cost,
+				"climbs": current["climbs"] + (1 if next_h > curr_h else 0),
+				"path": next_path
+			}
+
+			# Allow subclass to alter state upon entering tile (e.g. Spikeman Interception)
+			_on_step_entered(board_state, next_pos, next_state)
+
+			queue.append(next_state)
+
+	visited.erase(grid_pos) # Starting tile is not a valid movement target
+	return visited
+
+# ==========================================================
+# CHAPTER I: LINE OF SIGHT (LOS) ENGINE
+# ==========================================================
+
+func has_line_of_sight(board_state: BoardState, p_start: Vector2i, p_end: Vector2i) -> bool:
+	var D = max(abs(p_end.x - p_start.x), abs(p_end.y - p_start.y))
+	if D <= 1:
+		return true # Adjacent tiles always have LOS
+
+	var h_start = board_state.get_height_at(p_start)
+	var h_end = board_state.get_height_at(p_end)
+
+	for step in range(1, D):
+		var t_i = Vector2i(
+			round(lerp(float(p_start.x), float(p_end.x), float(step) / D)),
+			round(lerp(float(p_start.y), float(p_end.y), float(step) / D))
+		)
+		
+		var d_i = max(abs(t_i.x - p_start.x), abs(t_i.y - p_start.y))
+		var raw_h_los = float(h_start) + (float(d_i) / float(D)) * float(h_end - h_start)
+		var h_los_threshold = round(raw_h_los)
+		
+		if board_state.get_height_at(t_i) > h_los_threshold:
+			return false
+
+	return true
 
 # ==========================================================
 # CAMERA HANDLING
 # ==========================================================
 
 func _on_cam_changed(cam: Camera3D):
-	if cam.name == "View2D":
-		$Sprite3D.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	else:
-		$Sprite3D.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	if has_node("Sprite3D"):
+		$Sprite3D.billboard = BaseMaterial3D.BILLBOARD_ENABLED if cam.name == "View2D" else BaseMaterial3D.BILLBOARD_FIXED_Y

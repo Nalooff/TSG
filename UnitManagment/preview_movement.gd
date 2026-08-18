@@ -27,7 +27,7 @@ func _spawn_highlight_at(coord: Vector2i) -> void:
 	if not highlight_scene:
 		return
 		
-	var height = Global.board.get_height_at(coord.x, coord.y)
+	var height = Global.board.get_height_at(coord)
 	var world_pos = Global.board.grid_to_world(coord.x, height, coord.y)
 	
 	# Hover slightly above block top face to prevent Z-fighting

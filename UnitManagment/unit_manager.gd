@@ -89,7 +89,7 @@ func spawn_pawn(pawn_scene: PackedScene, grid_pos: Vector2i) -> BasePawn:
 	Global.board.set_unit_at(grid_pos, pawn_instance)
 	
 	# Set 3D visual position including height
-	var height = Global.board.get_height_at(grid_pos.x, grid_pos.y)
+	var height = Global.board.get_height_at(grid_pos)
 	pawn_instance.global_position = Global.board.grid_to_world(grid_pos.x, height, grid_pos.y, true)
 
 	EventBus.pawn_registered.emit(pawn_instance)
@@ -120,7 +120,7 @@ func move_pawn(pawn : BasePawn, target_coord : Vector2i) -> void:
 	pawn.grid_pos = target_coord
 
 	# Animate movement into world space
-	var target_height = Global.board.get_height_at(target_coord.x, target_coord.y)
+	var target_height = Global.board.get_height_at(target_coord)
 	var world_pos = Global.board.grid_to_world(target_coord.x, target_height, target_coord.y, true)
 
 	var tween = create_tween()
@@ -151,7 +151,7 @@ func _on_board_changed() -> void:
 
 func _adjust_pawn_to_tile_height(pawn: BasePawn, coord: Vector2i) -> void:
 	# 1. Fetch updated tier height from BoardState (which now includes size.y)
-	var current_tier = Global.board.get_height_at(coord.x, coord.y)
+	var current_tier = Global.board.get_height_at(coord)
 	
 	# 2. Get 3D world position at top face (atop = true)
 	var target_world_pos = Global.board.grid_to_world(coord.x, current_tier, coord.y, true)

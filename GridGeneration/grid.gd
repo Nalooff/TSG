@@ -115,11 +115,11 @@ func _precalculate_resources() -> void:
 
 ## Returns the top layer level index stored at coordinates, or -1 if empty/out of bounds.
 func get_height_at(x: int, z: int) -> int:
-	return Global.board.get_height_at(x, z)
+	return Global.board.get_height_at(Vector2i(x, z))
 
 ## Directly sets the data matrix layer height value for given coordinates.
 func set_height_at(x: int, z: int, height: int) -> void:
-	Global.board.set_height_at(x, z, height)
+	Global.board.set_height_at(Vector2i(x, z), height)
 
 
 # ==========================================
