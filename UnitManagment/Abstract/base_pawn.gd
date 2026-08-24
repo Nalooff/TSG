@@ -19,6 +19,12 @@ class_name BasePawn
 ## Cost to move 1 tile diagonally.
 @export var diagonal_cost: int = 1
 
+## How many tile up it can go up
+@export var climb_max: int = 1
+
+## How many tile down it can go down
+@export var descent_max: int = 2
+
 @export_group("Commander Panel")
 ## Distance in tiles this unit projects command authority (0 means not a commander).
 @export var command_radius: int = 0
@@ -107,7 +113,7 @@ func _get_allowed_directions() -> Array[Vector2i]:
 ## Calculates the MP cost to move from one tile to an adjacent tile based on direction and elevation change.
 func _calculate_step_cost(_board: BoardState, from: Vector2i, to: Vector2i, curr_h: int, next_h: int, _state: Dictionary) -> int:
 	var delta_h = next_h - curr_h
-	if delta_h > 1 or delta_h < -2:
+	if delta_h > climb_max or delta_h < -descent_max:
 		return -1
 
 	var dir = to - from
