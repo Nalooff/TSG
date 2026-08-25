@@ -1,12 +1,9 @@
 extends Node
-class_name PieceHandler
+class_name TileHandler
 
 # ==========================================
 # STATE & DATA CONTAINERS
 # ==========================================
-
-## Shared static or tracked build mode state across all handlers.
-static var current_build_mode: GData.BuildMode = GData.BuildMode.ADD
 
 ## Grid target coordinate tracking cached from cursor system updates.
 var current_grid_pos: Vector3i = Vector3i(-1, -1, -1)
@@ -36,7 +33,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("switch_build_mode"):
 		# Mark event as handled so sister nodes don't toggle it a second time in the same frame!
 		get_viewport().set_input_as_handled()
-		PieceHandler._switch_build_mode()
+		Global.switch_build_mode()
 		return
 	
 	if event.is_action_pressed("interact"):
@@ -52,18 +49,6 @@ func _try_interact_at_cursor() -> void:
 		
 	var request_coord := Vector2i(current_grid_pos.x, current_grid_pos.z)
 	_execute_action(request_coord)
-
-## Switches active mode between ADD and REMOVE, broadcasting the result globally.
-static func _switch_build_mode(mode = null) -> void:
-	if mode != null:
-		current_build_mode = mode
-	else:
-		if current_build_mode == GData.BuildMode.ADD:
-			current_build_mode = GData.BuildMode.REMOVE
-		else:
-			current_build_mode = GData.BuildMode.ADD
-		
-	EventBus.build_mode_changed.emit(current_build_mode)
 
 
 # ==========================================

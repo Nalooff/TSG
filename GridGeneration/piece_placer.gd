@@ -1,4 +1,4 @@
-extends PieceHandler
+extends TileHandler
 class_name PiecePlacer
 
 # ==========================================
@@ -7,7 +7,9 @@ class_name PiecePlacer
 
 ## Evaluates whether handler handles ADD mode.
 func _can_handle_mode() -> bool:
-	if current_build_mode == GData.BuildMode.ADD:
+	if Global.current_mode != GData.GameMode.BUILD:
+		return false
+	if Global.current_build_mode == GData.BuildMode.ADD:
 		return true
 	return super._can_handle_mode()
 

@@ -16,16 +16,24 @@ extends Node
 # ==============================================================================
 # SIGNAL REGISTRY
 # ==============================================================================
-signal camera_changed(cam: Camera3D)
+signal game_started(player_count: int)
 signal build_mode_changed(new_mode: GData.BuildMode)
+signal game_mode_changed(new_mode: GData.GameMode)
+signal board_changed()
 signal tile_hovered(tile_info: Dictionary) # Dictionary: { "grid_pos": Vector2i, "normal": Vector3, "position": Vector3, "collider": Object }
 signal preview_updated(grid_pos: Vector3i, size: Vector3i, is_valid: bool)
 signal placement_requested(grid_2d_pos: Vector2i, size: Vector3i)
 signal block_placed(grid_position: Vector3i, size: Vector3i, is_successful: bool)
 signal removal_requested(grid_2d_pos: Vector2i, size: Vector3i)
 signal block_removed(grid_position: Vector3i, size: Vector3i, is_successful: bool)
-signal pawn_moved(pawn: Node, target_tile: Vector2i)
-signal game_started(player_count: int)
+signal pawn_registered(pawn: BasePawn)
+signal pawn_unregistered(pawn: BasePawn)
+signal pawn_hovered(pawn: BasePawn)
+signal pawn_selected(pawn: BasePawn)
+signal pawn_deselected()
+signal pawn_move_requested(pawn: BasePawn, target_pos: Vector2i)
+signal pawn_moved(pawn: BasePawn, target_tile: Vector2i, is_successful: bool)
+signal camera_changed(cam: Camera3D)
 
 
 # ==============================================================================

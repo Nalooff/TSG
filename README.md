@@ -1,3 +1,4 @@
+
 # TSG - Tactical Strategy Game
 
 TSG is a turn-based 3D/2D strategy game built in Godot 4.x. Command your army of pawns led by vital Commanders across dynamically generated voxel terrain. Use height advantages, tactical placement, and Risk-style contested dice rolls to eliminate your opponent's forces and secure victory.
@@ -12,7 +13,7 @@ TSG is a turn-based 3D/2D strategy game built in Godot 4.x. Command your army of
 * **Dice Modifiers**: Your combat dice pools expand based on unit properties, Commander proximity coverage, type matchups, and elevation advantages.
 
 ---
-
+* depracted *
 ## 🕹️ Controls
 
 | Action | Primary Input | Secondary Input | Description |
@@ -33,7 +34,7 @@ TSG is a turn-based 3D/2D strategy game built in Godot 4.x. Command your army of
 * **Automated Event Bus**: Global signal dispatcher that automatically registers signals to `ProjectSettings` for real-time console debug tracking.
 
 ---
-
+* depracted *
 ## 📂 Project Architecture
 
 ```
@@ -46,6 +47,6 @@ TSG is a turn-based 3D/2D strategy game built in Godot 4.x. Command your army of
 │   ├── grid.gd           # Core voxel grid matrix & mesh rendering logic
 │   └── map_generator.gd  # Procedural Simplex & topology map generators
 └── Script/
-    ├── world.gd          # Dual camera controller & rotation system
-    ├── select_cursor.gd   # 3D grid raycasting system
-    └── base_pawn.gd       # Pawn entity behavior & camera-facing billboard logic
+	├── world.gd          # Dual camera controller & rotation system
+	├── select_cursor.gd   # 3D grid raycasting system
+	└── base_pawn.gd       # Pawn entity behavior & camera-facing billboard logic

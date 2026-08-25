@@ -15,9 +15,6 @@ const GRID_HEIGHT: int = 4
 const GRID_CENTER: Vector3 = Vector3(GRID_WIDTH, 0, GRID_DEPTH) * CELL_SIZE / 2.0
 const CELL_SIZE: float = 2.0
 
-
-enum BuildMode { ADD, REMOVE }
-
 const GRID_LAYER_COLORS = [
 	Color8(64, 64, 64),    # Layer 0: Dark Grey
 	Color8(127, 127, 127),  # Layer 1: Grey
@@ -36,13 +33,36 @@ const TILE = {
 	OCCUPIES_CELL : true,
 }
 
+enum PawnNode { SPRITE_3D, AREA_3D, COMPONENTS }
+
 const PAWN = {
-	COLLISION_LAYER : 2,
-	COLLISION_LAYER_BITMASK : 1 << 1,
-	COLLISION_MASK : 0,
-	COLLISION_MASK_BITMASK : 0,
-	OCCUPIES_CELL : false,
+	COLLISION_LAYER: 2,
+	COLLISION_LAYER_BITMASK: 1 << 1,
+	COLLISION_MASK: 0,
+	COLLISION_MASK_BITMASK: 0,
+	OCCUPIES_CELL: false,
+	NODES_NAMES: {
+		PawnNode.SPRITE_3D: "Sprite3D",
+		PawnNode.AREA_3D: "Area3D",
+		PawnNode.COMPONENTS: "Components"
+	}
 }
+
+# ===============================================
+# GAME STATES / MODES
+# ===============================================
+enum GameMode {
+	PLAY,    # Normal gameplay: selecting units, moving, attacking
+	BUILD,   # Map editing: adding/removing tiles using BuildMode
+	MENU,  # Game menu / paused state: ignores board clicks entirely
+	NONE     # Neutral state (e.g., cutscenes, transitions)
+}
+
+# Sub-mode for BUILD state
+enum BuildMode { ADD, REMOVE }
+
+# Sub-mode for PLAY state
+enum PlayMode {MOVE, SELECT, INTERACT}
 
 # ===============================================
 # PARAMETERS NAME
@@ -52,3 +72,4 @@ const COLLISION_LAYER_BITMASK : String = "COLLISION_LAYER_BITMASK"
 const COLLISION_MASK : String = "COLLISION_MASK"
 const COLLISION_MASK_BITMASK : String = "COLLISION_MASK_BITMASK"
 const OCCUPIES_CELL : String = "OCCUPIES_CELL"
+const NODES_NAMES : String = "NODES_NAMES"

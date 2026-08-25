@@ -1,0 +1,37 @@
+[gd_scene load_steps=7 format=3 uid="uid://ex7q0ctfewon"]
+
+[ext_resource type="Script" uid="uid://dkvi7wfpy474o" path="res://UnitManagment/Abstract/base_pawn.gd" id="1_2w3wp"]
+[ext_resource type="Texture2D" uid="uid://bp43dijulw6e" path="res://icon.svg" id="1_10sa4"]
+[ext_resource type="Script" uid="uid://bcr5pwl0beqtk" path="res://UnitManagment/Pawns/movement_component.gd" id="3_sbcp1"]
+[ext_resource type="Script" uid="uid://dtpiiofr25b86" path="res://UnitManagment/Pawns/zone_of_control_component.gd" id="4_ghd1g"]
+[ext_resource type="Script" uid="uid://bprwgvc2d1dat" path="res://UnitManagment/Pawns/combat_component.gd" id="5_dkmyr"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_r65al"]
+size = Vector3(2, 2, 2)
+
+[node name="BasePawn" type="Node3D"]
+script = ExtResource("1_2w3wp")
+
+[node name="Sprite3D" type="Sprite3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.628009, 0)
+billboard = 1
+texture = ExtResource("1_10sa4")
+
+[node name="Area3D" type="Area3D" parent="."]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("BoxShape3D_r65al")
+
+[node name="Components" type="Node3D" parent="."]
+
+[node name="Movement" type="Node3D" parent="Components"]
+script = ExtResource("3_sbcp1")
+
+[node name="ZoC" type="Node3D" parent="Components"]
+script = ExtResource("4_ghd1g")
+
+[node name="Combat" type="Node3D" parent="Components"]
+script = ExtResource("5_dkmyr")
