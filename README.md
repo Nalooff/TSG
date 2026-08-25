@@ -1,6 +1,6 @@
 # TSG - Tactical Strategy Game
 
-TSG is a turn-based 3D/2D strategy game built in Godot 4.x. Command your army of pawns led by vital Commanders across dynamically generated voxel terrain. Use height advantages, tactical placement, and Risk-style contested dice rolls to eliminate your opponent's forces and secure victory.
+TSG is a turn-based 3D/2D strategy game built in Godot 4.4. Command your army of pawns led by vital Commanders across dynamically generated voxel terrain. Use height advantages, tactical placement, and Risk-style contested dice rolls to eliminate your opponent's forces and secure victory.
 
 ---
 
