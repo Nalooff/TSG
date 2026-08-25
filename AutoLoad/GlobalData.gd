@@ -33,12 +33,19 @@ const TILE = {
 	OCCUPIES_CELL : true,
 }
 
+enum PawnNode { SPRITE_3D, AREA_3D, COMPONENTS }
+
 const PAWN = {
-	COLLISION_LAYER : 2,
-	COLLISION_LAYER_BITMASK : 1 << 1,
-	COLLISION_MASK : 0,
-	COLLISION_MASK_BITMASK : 0,
-	OCCUPIES_CELL : false,
+	COLLISION_LAYER: 2,
+	COLLISION_LAYER_BITMASK: 1 << 1,
+	COLLISION_MASK: 0,
+	COLLISION_MASK_BITMASK: 0,
+	OCCUPIES_CELL: false,
+	NODES_NAMES: {
+		PawnNode.SPRITE_3D: "Sprite3D",
+		PawnNode.AREA_3D: "Area3D",
+		PawnNode.COMPONENTS: "Components"
+	}
 }
 
 # ===============================================
@@ -65,3 +72,4 @@ const COLLISION_LAYER_BITMASK : String = "COLLISION_LAYER_BITMASK"
 const COLLISION_MASK : String = "COLLISION_MASK"
 const COLLISION_MASK_BITMASK : String = "COLLISION_MASK_BITMASK"
 const OCCUPIES_CELL : String = "OCCUPIES_CELL"
+const NODES_NAMES : String = "NODES_NAMES"

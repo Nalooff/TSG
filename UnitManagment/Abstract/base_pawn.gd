@@ -1,6 +1,13 @@
 extends Node3D
 class_name BasePawn
 
+const NODES_NAMES = GData.PAWN.NODES_NAMES
+
+# Strongly typed node references initialized automatically when the scene enters the tree
+@onready var area_3d: Area3D = get_node_or_null(NODES_NAMES[GData.PawnNode.AREA_3D]) as Area3D
+@onready var sprite_3d: Sprite3D = get_node_or_null(NODES_NAMES[GData.PawnNode.SPRITE_3D]) as Sprite3D
+@onready var components: Node3D = get_node_or_null(NODES_NAMES[GData.PawnNode.COMPONENTS]) as Node3D
+
 @export_group("Base Stats")
 ## Team/Faction identifier to distinguish friendly from enemy units.
 @export var team_id: int = 0
@@ -48,6 +55,27 @@ var _zoc_effects_cache: Dictionary = {}
 func _ready() -> void:
 	EventBus.camera_changed.connect(_on_cam_changed)
 	_build_zoc_reflection_cache()
+
+## Validates that all required structural nodes exist in the scene tree.
+## Pushes critical errors to the console if nodes are missing.
+func _ensure_required_nodes() -> void:
+	var missing_nodes: Array[String] = []
+
+	if area_3d == null:
+		missing_nodes.append(NODES_NAMES[GData.PawnNode.AREA_3D])
+		
+	if sprite_3d == null:
+		missing_nodes.append(NODES_NAMES[GData.PawnNode.SPRITE_3D])
+		
+	if components == null:
+		missing_nodes.append(NODES_NAMES[GData.PawnNode.COMPONENTS])
+
+	if not missing_nodes.is_empty():
+		push_error(
+			"[%s] Missing required node(s): %s. \
+			Ensure this pawn is instantiated from a valid .tscn scene!" 
+			% [name, ", ".join(missing_nodes)]
+		)
 
 ## Scans and caches all "get_zoc_" and "zoc_effect_" methods once to eliminate slow runtime reflection.
 func _build_zoc_reflection_cache() -> void:
@@ -142,6 +170,10 @@ func has_line_of_sight(board_state: BoardState, p_start: Vector2i, p_end: Vector
 			return false
 
 	return true
+
+## Static factory: Loads and instantiates the full BasePawn scene (or a custom inherited scene).
+static func spawn(pawn_scene: PackedScene) -> BasePawn:
+	return pawn_scene.instantiate() as BasePawn
 
 # ==========================================================
 # OVERRIDABLE MOVEMENT HOOKS

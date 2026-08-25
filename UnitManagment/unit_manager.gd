@@ -83,9 +83,9 @@ func spawn_pawn(pawn_scene: PackedScene, grid_pos: Vector2i) -> BasePawn:
 		print("a pawn is already occupying this tile")
 		return null
 	
-	var pawn_instance = pawn_scene.instantiate() as BasePawn
+	var pawn_instance := BasePawn.spawn(pawn_scene)
 	if not pawn_instance:
-		push_error("UnitManager: Instantiated scene is not a BasePawn.")
+		push_error("UnitManager: Instantiated scene is not a valid BasePawn.")
 		return null
 	
 	pawn_container.add_child(pawn_instance)
