@@ -19,8 +19,8 @@ TSG is a turn-based 3D/2D strategy game built in Godot 4.x. Command your army of
 | :--- | :--- | :--- | :--- |
 | **Interact / Build** | Left Mouse Button | — | Place/remove blocks or select/move units based on state |
 | **Switch Build Mode** | <kbd>B</kbd> Key | — | Toggle between **ADD** and **REMOVE** block modes |
-| **Toggle Game Mode** | Custom / Script | — | Switch between **PLAY** and **BUILD** game states |
-| **Rotate Camera** | Right Mouse Button *(Hold & Drag)* | <kbd>Left</kbd> / <kbd>Right</kbd> Arrow Keys | Orbit perspective camera around grid center |
+| **Toggle Game Mode** | <kbd>V</kbd> Key | — | Switch between **PLAY** and **BUILD** game states |
+| **Rotate Camera** | Middle Mouse Button *(Hold & Drag)* | <kbd>Left</kbd> / <kbd>Right</kbd> Arrow Keys | Orbit perspective camera around grid center |
 | **Toggle View Mode** | <kbd>Enter</kbd> Key | — | Switch between 3D Perspective and 2D Top-Down View |
 
 ---
