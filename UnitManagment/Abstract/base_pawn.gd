@@ -8,11 +8,7 @@ class_name BasePawn
 ## Default base Movement Points available to this pawn per turn.
 @export var base_mp: int = 3
 
-@export_group("Classification & Tags")
-## Tags defining this pawn's characteristics (e.g. ["fast_unit", "cavalry", "armored"]).
-@export var tags: Array[String] = []
-
-@export_group("Movement Costs")
+@export_group("Movement")
 ## Cost to move 1 tile orthogonally (Up, Down, Left, Right).
 @export var orthogonal_cost: int = 1
 
@@ -24,6 +20,10 @@ class_name BasePawn
 
 ## How many tile down it can go down
 @export var descent_max: int = 2
+
+@export_group("Classification & Tags")
+## Tags defining this pawn's characteristics (e.g. [&"global", &"cavalry", &"armored"]).
+@export var tags: Array[StringName] = [&"global"]
 
 @export_group("Commander Panel")
 ## Distance in tiles this unit projects command authority (0 means not a commander).
@@ -46,8 +46,7 @@ var _zoc_effects_cache: Dictionary = {}
 
 
 func _ready() -> void:
-	if EventBus.has_signal("camera_changed"):
-		EventBus.connect("camera_changed", _on_cam_changed)
+	EventBus.camera_changed.connect(_on_cam_changed)
 	_build_zoc_reflection_cache()
 
 ## Scans and caches all "get_zoc_" and "zoc_effect_" methods once to eliminate slow runtime reflection.
@@ -72,17 +71,37 @@ func _build_zoc_reflection_cache() -> void:
 func has_tag(tag_id: String) -> bool:
 	return tags.has(tag_id)
 
+## Returns a Dictionary mapping reachable destination tiles (Vector2i) 
+## to their path state data (cost, remaining MP, path array, etc.).
+func get_reachable_paths(board_state: BoardState) -> Dictionary:
+	var total_mp = get_effective_mp(board_state)
+	var raw_paths = _calculate_reachable_tiles(board_state, total_mp)
+	
+	if not _use_los:
+		return raw_paths
+		
+	# Filter out destinations blocked by Line of Sight
+	var valid_paths: Dictionary = {}
+	for dest in raw_paths.keys():
+		if has_line_of_sight(board_state, grid_pos, dest):
+			valid_paths[dest] = raw_paths[dest]
+			
+	return valid_paths
+
+## Convenience helper: Returns the exact step-by-step path array to reach a specific destination tile.
+func get_path_to_tile(board_state: BoardState, destination: Vector2i) -> Array[Vector2i]:
+	var paths = get_reachable_paths(board_state)
+	if paths.has(destination):
+		var path_data = paths[destination]
+		if path_data.has("path"):
+			return path_data["path"]
+	return []
+
 ## Returns all tile positions this pawn can legitimately reach this turn, accounting for MP, terrain, and LOS.
 func get_valid_moves(board_state: BoardState) -> Array[Vector2i]:
+	var paths = get_reachable_paths(board_state)
 	var valid_moves: Array[Vector2i] = []
-	var total_mp = get_effective_mp(board_state)
-	
-	var reachable_paths = _calculate_reachable_tiles(board_state, total_mp)
-	
-	for dest in reachable_paths.keys():
-		if not _use_los or has_line_of_sight(board_state, grid_pos, dest):
-			valid_moves.append(dest)
-			
+	valid_moves.assign(paths.keys())
 	return valid_moves
 
 ## Calculates current available Movement Points, taking disruption penalties into account.
@@ -98,6 +117,31 @@ func is_in_command_range(target_pos: Vector2i) -> bool:
 		return false
 	var dist = max(abs(target_pos.x - grid_pos.x), abs(target_pos.y - grid_pos.y))
 	return dist <= command_radius
+
+## Checks if there is an unobstructed line of sight between p_start and p_end based on elevation thresholds.
+func has_line_of_sight(board_state: BoardState, p_start: Vector2i, p_end: Vector2i) -> bool:
+	var D = max(abs(p_end.x - p_start.x), abs(p_end.y - p_start.y))
+	if D <= 1:
+		return true
+
+	var h_start = board_state.get_height_at(p_start)
+	var h_end = board_state.get_height_at(p_end)
+	var inv_D = 1.0 / float(D)
+
+	for step in range(1, D):
+		var factor = float(step) * inv_D
+		var t_i = Vector2i(
+			round(lerp(float(p_start.x), float(p_end.x), factor)),
+			round(lerp(float(p_start.y), float(p_end.y), factor))
+		)
+		
+		var d_i = max(abs(t_i.x - p_start.x), abs(t_i.y - p_start.y))
+		var raw_h_los = float(h_start) + (float(d_i) * inv_D) * float(h_end - h_start)
+		
+		if board_state.get_height_at(t_i) > round(raw_h_los):
+			return false
+
+	return true
 
 # ==========================================================
 # OVERRIDABLE MOVEMENT HOOKS
@@ -127,6 +171,8 @@ func _is_step_allowed(_board: BoardState, _from: Vector2i, _to: Vector2i, _dir: 
 ## Subclass hook executed when entering a step (e.g., zeroing remaining MP upon interception).
 func _on_step_entered(_board: BoardState, _pos: Vector2i, _state: Dictionary) -> void:
 	pass
+
+
 
 # ==========================================================
 # FAST ZONE OF CONTROL (ZOC) REFLECTION
@@ -237,33 +283,8 @@ func _calculate_reachable_tiles(board_state: BoardState, start_mp: int) -> Dicti
 	return visited
 
 # ==========================================================
-# LINE OF SIGHT (LOS)
+# CAMERA
 # ==========================================================
-
-## Checks if there is an unobstructed line of sight between p_start and p_end based on elevation thresholds.
-func has_line_of_sight(board_state: BoardState, p_start: Vector2i, p_end: Vector2i) -> bool:
-	var D = max(abs(p_end.x - p_start.x), abs(p_end.y - p_start.y))
-	if D <= 1:
-		return true
-
-	var h_start = board_state.get_height_at(p_start)
-	var h_end = board_state.get_height_at(p_end)
-	var inv_D = 1.0 / float(D)
-
-	for step in range(1, D):
-		var factor = float(step) * inv_D
-		var t_i = Vector2i(
-			round(lerp(float(p_start.x), float(p_end.x), factor)),
-			round(lerp(float(p_start.y), float(p_end.y), factor))
-		)
-		
-		var d_i = max(abs(t_i.x - p_start.x), abs(t_i.y - p_start.y))
-		var raw_h_los = float(h_start) + (float(d_i) * inv_D) * float(h_end - h_start)
-		
-		if board_state.get_height_at(t_i) > round(raw_h_los):
-			return false
-
-	return true
 
 ## Signal callback adapting 2D billboard presentation according to camera view type.
 func _on_cam_changed(cam: Camera3D):
