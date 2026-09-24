@@ -9,8 +9,11 @@
 [sub_resource type="BoxShape3D" id="BoxShape3D_r65al"]
 size = Vector3(2, 2, 2)
 
-[node name="BasePawn" type="Node3D"]
+[node name="BasePawn" type="Node3D" node_paths=PackedStringArray("movement", "zoc", "combat")]
 script = ExtResource("1_2w3wp")
+movement = NodePath("Components/Movement")
+zoc = NodePath("Components/ZoC")
+combat = NodePath("Components/Combat")
 
 [node name="Sprite3D" type="Sprite3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.628009, 0)
@@ -29,6 +32,7 @@ shape = SubResource("BoxShape3D_r65al")
 
 [node name="Movement" type="Node3D" parent="Components"]
 script = ExtResource("3_sbcp1")
+diagonal_cost = 2
 
 [node name="ZoC" type="Node3D" parent="Components"]
 script = ExtResource("4_ghd1g")

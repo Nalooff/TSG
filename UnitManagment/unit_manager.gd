@@ -15,8 +15,8 @@ func _ready() -> void:
 		
 	if pawn_scene:
 		var pawn = spawn_pawn(pawn_scene, Vector2i(0, 0))
-		pawn.can_be_disrupted = false
-		pawn._use_los = false
+		pawn.movement.can_be_disrupted = false
+		pawn.movement.use_los = false
 
 ## Prepares a dedicated scene node for child pawns to prevent hierarchy clutter.
 func _initialize_containers() -> void:
@@ -138,7 +138,7 @@ func move_pawn(pawn : BasePawn, target_coord : Vector2i) -> void:
 	return
 
 func _valid_move(pawn : BasePawn, target_coord : Vector2i) -> bool:
-	var valid_moves = pawn.get_valid_moves(Global.board)
+	var valid_moves = pawn.movement.get_valid_moves(Global.board)
 	if not target_coord in valid_moves:
 		EventBus.pawn_moved.emit(pawn, target_coord, false)
 		return false

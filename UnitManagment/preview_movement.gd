@@ -13,7 +13,7 @@ func _on_pawn_selected(pawn: BasePawn) -> void:
 	if not pawn:
 		return
 		
-	var valid_moves = pawn.get_valid_moves(Global.board)
+	var valid_moves = pawn.movement.get_valid_moves(Global.board)
 	for coord in valid_moves:
 		_spawn_highlight_at(coord)
 

@@ -108,7 +108,7 @@ func get_zoc_threats_at(target_pos: Vector2i, asking_unit: BasePawn) -> Array[Di
 		if pawn == null or pawn == asking_unit or pawn.team_id == asking_unit.team_id:
 			continue
 			
-		var zoc_dict = pawn.get_zones_of_control(self, asking_unit)
+		var zoc_dict = pawn.zoc.get_zones_of_control(self, asking_unit)
 		for tag in zoc_dict.keys():
 			var payload = zoc_dict[tag]
 			if target_pos in payload["tiles"]:
@@ -126,7 +126,7 @@ func get_zoc_threats_at(target_pos: Vector2i, asking_unit: BasePawn) -> Array[Di
 
 ## Returns true if a pawn is out of range of all allied commanders and susceptible to disruption penalties.
 func is_unit_disrupted(pawn: BasePawn) -> bool:
-	if not pawn.can_be_disrupted:
+	if not pawn.movement.can_be_disrupted:
 		return false
 
 	var commanders = get_all_commanders_for_team(pawn.team_id)
@@ -143,8 +143,8 @@ func is_unit_disrupted(pawn: BasePawn) -> bool:
 func get_all_commanders_for_team(team_id: int) -> Array[BasePawn]:
 	var commanders: Array[BasePawn] = []
 	for pos in unit_matrix:
-		var pawn = unit_matrix[pos]
-		if pawn != null and pawn.team_id == team_id and pawn.command_radius > 0:
+		var pawn: BasePawn = unit_matrix[pos]
+		if pawn != null and pawn.team_id == team_id and pawn.movement.command_radius > 0:
 			commanders.append(pawn)
 	return commanders
 
