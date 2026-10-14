@@ -41,6 +41,7 @@ func _input(event: InputEvent) -> void:
 		swap_cameras()
 	
 	if event.is_action_pressed("change_mode"):
+		@warning_ignore("standalone_ternary")
 		Global.switch_game_mode(GData.GameMode.PLAY) if Global.current_mode == GData.GameMode.BUILD else Global.switch_game_mode(GData.GameMode.BUILD) 
 		EventBus.game_mode_changed.emit(Global.current_mode)
 	_handle_mouse_rotation(event)

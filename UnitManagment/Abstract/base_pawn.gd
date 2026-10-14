@@ -24,6 +24,8 @@ var grid_pos: Vector2i
 
 func _ready() -> void:
 	EventBus.camera_changed.connect(_on_cam_changed)
+	if movement == null or zoc == null or combat == null:
+		push_error("Nodes missing assigment : Combat [%s], ZoC [%s], Movement [%s]" % [str(combat), str(zoc), str(movement)])
 
 ## Checks if this pawn possesses a given classification tag.
 func has_tag(tag_id: StringName) -> bool:

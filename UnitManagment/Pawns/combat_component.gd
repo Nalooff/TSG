@@ -13,7 +13,6 @@ func can_attack(board_state: BoardState, target_pawn: BasePawn) -> bool:
 	if dist > attack_range:
 		return false
 
-	# Requires clear LOS via movement component check
 	if pawn.movement and not pawn.movement.has_line_of_sight(board_state, pawn.grid_pos, target_pawn.grid_pos):
 		return false
 

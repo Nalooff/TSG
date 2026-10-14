@@ -23,6 +23,7 @@ class_name MovementComponent
 func get_effective_mp(board_state: BoardState) -> int:
 	var mp = pawn.base_mp
 	if can_be_disrupted and board_state.is_unit_disrupted(pawn):
+		@warning_ignore("integer_division")
 		mp = max(1, mp / 2)
 	return mp
 
@@ -208,6 +209,7 @@ class PriorityQueue:
 
 	func _up_heap(index: int) -> void:
 		while index > 0:
+			@warning_ignore("integer_division")
 			var parent = (index - 1) / 2
 			if heap[index]["priority"] < heap[parent]["priority"]:
 				var temp = heap[index]

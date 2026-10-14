@@ -3,6 +3,28 @@ extends RefCounted
 
 ## Utility class responsible for constructing dynamic meshes and 3D voxel wireframe outlines.
 
+
+## Creates a flat MeshInstance3D plane tile for highlighting board cells.
+
+static func create_tile_highlight(size: Vector2, color: Color, custom_material: Material = null) -> MeshInstance3D:
+	var mesh_instance := MeshInstance3D.new()
+	
+	var plane_mesh := PlaneMesh.new()
+	plane_mesh.size = size
+	mesh_instance.mesh = plane_mesh
+	
+	if custom_material:
+		mesh_instance.material_override = custom_material
+	else:
+		var material := StandardMaterial3D.new()
+		material.albedo_color = color
+		material.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mesh_instance.material_override = material
+	
+	return mesh_instance
+
+
 static func create_conforming_mesh(preview_size: Vector3i, base_gx: int, base_gz: int, heights: Dictionary) -> ArrayMesh:
 	var array_mesh = ArrayMesh.new()
 	

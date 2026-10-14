@@ -1,7 +1,11 @@
 extends Node3D
 
-@export var highlight_scene: PackedScene # Pass a simple MeshInstance3D quad scene here
 var active_highlights: Array[Node3D] = []
+
+@export_category("Highlight Customization")
+@export var highlight_color: Color = Color(0.2, 0.6, 1.0, 0.6) # Default tactical blue
+@export var highlight_size: Vector2 = Vector2(GData.CELL_SIZE-0.05, GData.CELL_SIZE-0.05)
+@export var custom_highlight_material: Material = null # Optional theme override asset
 
 func _ready() -> void:
 	EventBus.pawn_selected.connect(_on_pawn_selected)
@@ -14,6 +18,7 @@ func _on_pawn_selected(pawn: BasePawn) -> void:
 		return
 		
 	var valid_moves = pawn.movement.get_valid_moves(Global.board)
+	print(valid_moves)
 	for coord in valid_moves:
 		_spawn_highlight_at(coord)
 
@@ -24,16 +29,14 @@ func _on_pawn_moved(_pawn: BasePawn, _target_coord: Vector2i, _success: bool) ->
 	clear_previews()
 
 func _spawn_highlight_at(coord: Vector2i) -> void:
-	if not highlight_scene:
-		return
-		
 	var height = Global.board.get_height_at(coord)
-	var world_pos = Global.board.grid_to_world(coord.x, height, coord.y)
+	var world_pos = Global.board.grid_to_world(coord.x, height, coord.y) + Vector3(0,GData.CELL_SIZE/2, 0) # offset to put it at the top of the tile
 	
 	# Hover slightly above block top face to prevent Z-fighting
-	world_pos.y += 0.05 
+	world_pos.y += 0.1
 	
-	var instance = highlight_scene.instantiate() as Node3D
+	# Create the tile highlight via the builder utility, passing size, color, and optional material
+	var instance = PreviewMeshBuilder.create_tile_highlight(highlight_size, highlight_color, custom_highlight_material)
 	add_child(instance)
 	instance.global_position = world_pos
 	active_highlights.append(instance)

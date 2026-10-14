@@ -168,9 +168,11 @@ func _calculate_axis_start_index(spatial_pos: float, block_dim: int, grid_limit:
 	var start_idx: int
 	
 	if block_dim % 2 == 1:
+		@warning_ignore("integer_division")
 		start_idx = exact_hover_idx - (block_dim - 1) / 2
 	else:
 		var fractional_offset = precise_cell - exact_hover_idx
+		@warning_ignore("integer_division")
 		start_idx = exact_hover_idx - (block_dim / 2) + (1 if fractional_offset > 0.5 else 0)
 			
 	return clampi(start_idx, 0, grid_limit - block_dim)
