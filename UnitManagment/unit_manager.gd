@@ -11,6 +11,8 @@ var selected_pawn: BasePawn
 func _ready() -> void:
 	_initialize_connection()
 	_initialize_containers()
+	
+	
 	var pawn_scene = load("uid://ex7q0ctfewon")
 		
 	if pawn_scene:
