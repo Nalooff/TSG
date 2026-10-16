@@ -3,8 +3,8 @@ extends Node3D
 var active_highlights: Array[Node3D] = []
 
 @export_category("Highlight Customization")
-@export var highlight_color: Color = Color(0.2, 0.6, 1.0, 0.6) # Default tactical blue
-@export var highlight_size: Vector2 = Vector2(GData.CELL_SIZE-0.05, GData.CELL_SIZE-0.05)
+@export var highlight_color: Color = Color(0.2, 0.6, 1.0, 0.1) # Default tactical blue
+@export_custom(PROPERTY_HINT_LINK, "") var highlight_size: Vector2 = Vector2(GData.CELL_SIZE-0.05, GData.CELL_SIZE-0.05)
 @export var custom_highlight_material: Material = null # Optional theme override asset
 
 func _ready() -> void:

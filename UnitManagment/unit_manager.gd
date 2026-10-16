@@ -34,6 +34,7 @@ func _initialize_containers() -> void:
 func _initialize_connection():
 	EventBus.pawn_move_requested.connect(_on_pawn_move_requested)
 	EventBus.board_changed.connect(_on_board_changed)
+
 # ===============================================
 # SELECTION MANAGEMENT
 # ===============================================
