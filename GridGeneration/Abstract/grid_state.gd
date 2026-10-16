@@ -79,7 +79,7 @@ func cache_enemy_zocs_for(moving_unit: BasePawn) -> Array[Dictionary]:
 		if enemy == null or enemy == moving_unit or enemy.team_id == moving_unit.team_id:
 			continue
 			
-		var zoc_dict: Dictionary = enemy.get_zones_of_control(self, moving_unit)
+		var zoc_dict: Dictionary = enemy.zoc.get_zones_of_control(self, moving_unit)
 		for tag in zoc_dict.keys():
 			var payload: Dictionary = zoc_dict[tag]
 			zoc_cache.append({

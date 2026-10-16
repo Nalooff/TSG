@@ -74,12 +74,11 @@ func get_reachable_paths(board_state: BoardState) -> Dictionary:
 	return valid_paths
 
 func get_path_to_tile(board_state: BoardState, destination: Vector2i) -> Array[Vector2i]:
-	var paths = get_reachable_paths(board_state)
+	var result: Array[Vector2i] = []
+	var paths := get_reachable_paths(board_state)
 	if paths.has(destination):
-		var path_data = paths[destination]
-		if path_data.has("path"):
-			return path_data["path"]
-	return []
+		result.assign(paths[destination]["path"])
+	return result
 
 func get_valid_moves(board_state: BoardState) -> Array[Vector2i]:
 	var paths = get_reachable_paths(board_state)
@@ -118,6 +117,7 @@ func _on_step_entered(_board: BoardState, _pos: Vector2i, _state: Dictionary) ->
 
 func _calculate_reachable_tiles(board_state: BoardState, start_mp: int) -> Dictionary:
 	var visited = {}
+	var results = {}   # pos -> { "cost": int, "path": Array }
 	var pq = PriorityQueue.new()
 	var allowed_directions = _get_allowed_directions()
 
@@ -140,6 +140,10 @@ func _calculate_reachable_tiles(board_state: BoardState, start_mp: int) -> Dicti
 			continue
 			
 		visited[curr_pos] = curr_cost
+
+		# remember the best path found for this tile
+		if not results.has(curr_pos) or curr_cost < results[curr_pos]["cost"]:
+			results[curr_pos] = {"cost": curr_cost, "path": current["path"]}
 
 		for dir in allowed_directions:
 			var next_pos = curr_pos + dir
@@ -183,8 +187,8 @@ func _calculate_reachable_tiles(board_state: BoardState, start_mp: int) -> Dicti
 			
 			pq.push(next_state, next_cost)
 
-	visited.erase(pawn.grid_pos)
-	return visited
+	results.erase(pawn.grid_pos)
+	return results
 
 
 class PriorityQueue:

@@ -4,8 +4,98 @@ extends RefCounted
 ## Utility class responsible for constructing dynamic meshes and 3D voxel wireframe outlines.
 
 
-## Creates a flat MeshInstance3D plane tile for highlighting board cells.
 
+## Builds a snake-like 3D arrow: tubes joined by round joints, with a cone head on the last point.
+## `tile_points` are the world-space points the snake passes through (one per tile, start first).
+## The returned Node3D holds its children in the same space as the points, so keep its parent at identity.
+static func create_path_snake(tile_points: Array[Vector3], color: Color, tube_radius: float = 0.18, head_radius: float = 0.45, head_length: float = 0.8) -> Node3D:
+	var root := Node3D.new()
+	root.name = "PathSnake"
+	if tile_points.size() < 2:
+		return root
+
+	# Opaque on purpose: overlapping parts stay invisible, so joints look seamless
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.emission_enabled = true
+	mat.emission = color
+	mat.emission_energy_multiplier = 0.35
+
+	var pts := _expand_height_corners(tile_points)
+	var last := pts.size() - 1
+
+	for i in range(last):
+		root.add_child(_make_snake_sphere(pts[i], tube_radius, mat))   # round joint (also rounds the tail)
+		root.add_child(_make_snake_tube(pts[i], pts[i + 1], tube_radius, mat))
+
+	var dir := (pts[last] - pts[last - 1]).normalized()
+	root.add_child(_make_snake_head(pts[last], dir, head_radius, head_length, mat))
+	return root
+
+
+## Inserts a corner point on every height change so the tube rises at the current tile
+## (climb) or drops at the next tile (descent), never cutting through a wall.
+static func _expand_height_corners(tile_points: Array[Vector3]) -> Array[Vector3]:
+	var pts: Array[Vector3] = [tile_points[0]]
+	for i in range(1, tile_points.size()):
+		var p: Vector3 = pts.back()
+		var q: Vector3 = tile_points[i]
+		if q.y > p.y + 0.001:
+			pts.append(Vector3(p.x, q.y, p.z))
+		elif q.y < p.y - 0.001:
+			pts.append(Vector3(q.x, p.y, q.z))
+		pts.append(q)
+	return pts
+
+
+static func _make_snake_tube(a: Vector3, b: Vector3, radius: float, mat: Material) -> MeshInstance3D:
+	var dir := b - a
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = radius
+	mesh.bottom_radius = radius
+	mesh.height = dir.length()
+	mesh.radial_segments = 12
+	mesh.rings = 1
+	return _make_oriented_mesh(mesh, mat, (a + b) * 0.5, dir.normalized())
+
+
+static func _make_snake_sphere(pos: Vector3, radius: float, mat: Material) -> MeshInstance3D:
+	var mesh := SphereMesh.new()
+	mesh.radius = radius
+	mesh.height = radius * 2.0
+	mesh.radial_segments = 12
+	mesh.rings = 6
+	return _make_oriented_mesh(mesh, mat, pos, Vector3.UP)
+
+
+static func _make_snake_head(tip_point: Vector3, dir: Vector3, radius: float, length: float, mat: Material) -> MeshInstance3D:
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = 0.0   # apex
+	mesh.bottom_radius = radius
+	mesh.height = length
+	mesh.radial_segments = 16
+	mesh.rings = 1
+	# Shifted back so the apex ends just past the tile center
+	return _make_oriented_mesh(mesh, mat, tip_point - dir * length * 0.3, dir)
+
+
+## Creates a MeshInstance3D at `pos` (local space) with its Y axis aligned to `up_dir`.
+static func _make_oriented_mesh(mesh: Mesh, mat: Material, pos: Vector3, up_dir: Vector3) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+	var orient: Basis
+	if up_dir.is_equal_approx(Vector3.DOWN):
+		orient = Basis(Vector3.RIGHT, PI)
+	else:
+		orient = Basis(Quaternion(Vector3.UP, up_dir))
+	mi.transform = Transform3D(orient, pos)
+	return mi
+
+
+## Creates a flat MeshInstance3D plane tile for highlighting board cells.
 static func create_tile_highlight(size: Vector2, color: Color, custom_material: Material = null) -> MeshInstance3D:
 	var mesh_instance := MeshInstance3D.new()
 	

@@ -7,6 +7,12 @@ const PAWNS_NODE_NAME = "Pawns"
 var pawn_container: Node3D
 var selected_pawn: BasePawn
 
+@export_group("Movement")
+@export var step_duration: float = 0.15
+## false = stay selected and keep the preview after an invalid click. true = deselect instead.
+@export var deselect_on_invalid_click: bool = false
+
+var _is_moving: bool = false
 
 func _ready() -> void:
 	_initialize_connection()
@@ -16,9 +22,13 @@ func _ready() -> void:
 	var pawn_scene = load("uid://ex7q0ctfewon")
 		
 	if pawn_scene:
-		var pawn = spawn_pawn(pawn_scene, Vector2i(0, 0))
+		var pawn = spawn_pawn(pawn_scene, Vector2i(0, 0), 1)
 		pawn.movement.can_be_disrupted = false
 		pawn.movement.use_los = false
+		
+		var pawn1 = spawn_pawn(pawn_scene, Vector2i(5, 5), 0)
+		pawn1.movement.can_be_disrupted = false
+		pawn1.movement.use_los = false
 
 ## Prepares a dedicated scene node for child pawns to prevent hierarchy clutter.
 func _initialize_containers() -> void:
@@ -77,7 +87,7 @@ func clear_selection() -> void:
 # ===============================================
 
 ## Spawns a pawn scene under the managed Pawns container.
-func spawn_pawn(pawn_scene: PackedScene, grid_pos: Vector2i) -> BasePawn:
+func spawn_pawn(pawn_scene: PackedScene, grid_pos: Vector2i, team_id : int) -> BasePawn:
 	if not pawn_scene:
 		push_error("UnitManager: Cannot spawn pawn from null PackedScene.")
 		return null
@@ -90,7 +100,7 @@ func spawn_pawn(pawn_scene: PackedScene, grid_pos: Vector2i) -> BasePawn:
 	if not pawn_instance:
 		push_error("UnitManager: Instantiated scene is not a valid BasePawn.")
 		return null
-	
+	pawn_instance.team_id = team_id
 	pawn_container.add_child(pawn_instance)
 	
 	# Store tracking info
@@ -106,46 +116,53 @@ func spawn_pawn(pawn_scene: PackedScene, grid_pos: Vector2i) -> BasePawn:
 
 
 func _on_pawn_move_requested(pawn: BasePawn, target_coord: Vector2i) -> void:
-	if not is_instance_valid(pawn):
+	if _is_moving or not is_instance_valid(pawn):
 		return
 
-	# 1. Re-validate request against board logic
-	if not _valid_move(pawn, target_coord):
+	var path: Array[Vector2i] = pawn.movement.get_path_to_tile(Global.board, target_coord)
+	if path.size() < 2:
+		EventBus.pawn_moved.emit(pawn, target_coord, false)
+		if deselect_on_invalid_click:
+			clear_selection()
 		return
 
-	# 2. Check and handle captures
 	_handle_occupant_interaction(pawn, target_coord)
 
-	# 3. Transfer position tracking on BoardState
-	await move_pawn(pawn, target_coord)
+	_is_moving = true
+	await move_pawn(pawn, path)
+	_is_moving = false
 
-	# 5. Complete state broadcast and clear selection
 	EventBus.pawn_moved.emit(pawn, target_coord, true)
 	clear_selection()
 
-func move_pawn(pawn : BasePawn, target_coord : Vector2i) -> void:
+
+func move_pawn(pawn: BasePawn, path: Array[Vector2i]) -> void:
+	var target_coord: Vector2i = path.back()
 	Global.board.set_unit_at(pawn.grid_pos, null)
 	Global.board.set_unit_at(target_coord, pawn)
 	pawn.grid_pos = target_coord
 
-	# Animate movement into world space
-	var target_height = Global.board.get_height_at(target_coord)
-	var world_pos = Global.board.grid_to_world(target_coord.x, target_height, target_coord.y, true)
+	var tween := create_tween()
+	var from_y: float = pawn.global_position.y
 
-	var tween = create_tween()
-	tween.tween_property(pawn, "global_position", world_pos, 0.25)\
-		.set_trans(Tween.TRANS_CUBIC)\
-		.set_ease(Tween.EASE_OUT)
+	for i in range(1, path.size()):
+		var c: Vector2i = path[i]
+		var next := Global.board.grid_to_world(c.x, Global.board.get_height_at(c), c.y, true)
+
+		if next.y > from_y + 0.001:
+			# Climbing: rise first, then slide onto the higher tile
+			tween.tween_property(pawn, "global_position:y", next.y, step_duration * 0.5)
+			tween.tween_property(pawn, "global_position", next, step_duration)
+		elif next.y < from_y - 0.001:
+			# Descending: slide off the edge first, then drop
+			tween.tween_property(pawn, "global_position", Vector3(next.x, from_y, next.z), step_duration)
+			tween.tween_property(pawn, "global_position:y", next.y, step_duration * 0.5)
+		else:
+			tween.tween_property(pawn, "global_position", next, step_duration)
+
+		from_y = next.y
 
 	await tween.finished
-	return
-
-func _valid_move(pawn : BasePawn, target_coord : Vector2i) -> bool:
-	var valid_moves = pawn.movement.get_valid_moves(Global.board)
-	if not target_coord in valid_moves:
-		EventBus.pawn_moved.emit(pawn, target_coord, false)
-		return false
-	return true
 
 func _handle_occupant_interaction(pawn : BasePawn, occupant_coord : Vector2i):
 	var occupant = Global.board.get_unit_at(occupant_coord)
