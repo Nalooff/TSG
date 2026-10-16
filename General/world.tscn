@@ -19,9 +19,7 @@ transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 10.
 [node name="Grid" parent="." instance=ExtResource("2_csvx7")]
 
 [node name="BlockPreview" parent="Grid" index="1"]
-conform_to_terrain = true
 preview_enabled = true
-preview_size = Vector3i(2, 2, 2)
 
 [node name="UnitManager" parent="." instance=ExtResource("3_86bl5")]
 

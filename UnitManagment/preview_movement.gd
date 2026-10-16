@@ -7,13 +7,13 @@ var _selected_pawn: BasePawn = null
 var _reachable: Dictionary = {}
 var _hovered_tile: Vector2i = Vector2i(-1, -1)
 
-@export_category("Highlight Customization")
+@export_group("Highlight Customization")
 @export var highlight_color: Color = Color(0.2, 0.6, 1.0, 0.1)
 @export_custom(PROPERTY_HINT_LINK, "") var highlight_size: Vector2 = Vector2(GData.CELL_SIZE-0.05, GData.CELL_SIZE-0.05)
 @export var custom_highlight_material: Material = null
 
-@export_category("Path Preview")
-@export var snake_color: Color = Color(1.0, 0.75, 0.15)
+@export_group("Path Preview")
+@export var snake_color: Color = Color(0.2, 0.9, 0.9)
 @export var tube_radius: float = 0.18
 @export var head_radius: float = 0.45
 @export var head_length: float = 0.8
