@@ -126,8 +126,6 @@ func _on_pawn_move_requested(pawn: BasePawn, target_coord: Vector2i) -> void:
 			clear_selection()
 		return
 
-	_handle_occupant_interaction(pawn, target_coord)
-
 	_is_moving = true
 	await move_pawn(pawn, path)
 	_is_moving = false
@@ -163,11 +161,6 @@ func move_pawn(pawn: BasePawn, path: Array[Vector2i]) -> void:
 		from_y = next.y
 
 	await tween.finished
-
-func _handle_occupant_interaction(pawn : BasePawn, occupant_coord : Vector2i):
-	var occupant = Global.board.get_unit_at(occupant_coord)
-	if occupant != null and occupant != pawn:
-		push_error("Tile already occupied, Not yet implemented effects")
 
 func _on_board_changed() -> void:
 	for pawn in get_all_pawns():

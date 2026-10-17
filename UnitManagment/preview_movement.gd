@@ -8,7 +8,8 @@ var _reachable: Dictionary = {}
 var _hovered_tile: Vector2i = Vector2i(-1, -1)
 
 @export_group("Highlight Customization")
-@export var highlight_color: Color = Color(0.2, 0.6, 1.0, 0.1)
+@export var highlight_color: Color = Color(0.2, 0.6, 1.0, 0.1)       # Blue for movement
+@export var enemy_highlight_color: Color = Color(1.0, 0.2, 0.2, 0.4) # Red for attack targets
 @export_custom(PROPERTY_HINT_LINK, "") var highlight_size: Vector2 = Vector2(GData.CELL_SIZE-0.05, GData.CELL_SIZE-0.05)
 @export var custom_highlight_material: Material = null
 
@@ -36,7 +37,12 @@ func _on_pawn_selected(pawn: BasePawn) -> void:
 
 	_reachable = pawn.movement.get_reachable_paths(Global.board)
 	for coord in _reachable.keys():
-		_spawn_highlight_at(coord)
+		_spawn_highlight_at(coord, highlight_color)
+		
+	if pawn.combat:
+		var enemies = pawn.combat.get_attackable_enemies(Global.board)
+		for enemy in enemies:
+			_spawn_highlight_at(enemy.grid_pos, enemy_highlight_color)
 
 
 func _on_pawn_deselected() -> void:
@@ -88,12 +94,12 @@ func _tile_point(coord: Vector2i) -> Vector3:
 	return Global.board.grid_to_world(coord.x, h, coord.y, true) + Vector3.UP * (tube_radius + 0.12)
 
 
-func _spawn_highlight_at(coord: Vector2i) -> void:
+func _spawn_highlight_at(coord: Vector2i, color : Color) -> void:
 	var height = Global.board.get_height_at(coord)
 	var world_pos = Global.board.grid_to_world(coord.x, height, coord.y) + Vector3(0, GData.CELL_SIZE / 2, 0)
 	world_pos.y += 0.1
 
-	var instance = PreviewMeshBuilder.create_tile_highlight(highlight_size, highlight_color, custom_highlight_material)
+	var instance = PreviewMeshBuilder.create_tile_highlight(highlight_size, color, custom_highlight_material)
 	add_child(instance)
 	instance.global_position = world_pos
 	active_highlights.append(instance)
