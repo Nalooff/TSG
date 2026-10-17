@@ -97,7 +97,7 @@ func process_cached_zoc_interceptions(moving_unit: BasePawn, from_pos: Vector2i,
 		if to_pos in zoc_tiles:
 			var enemy: BasePawn = entry["enemy"]
 			var tag: String = entry["tag"]
-			enemy.trigger_zoc_effect(tag, moving_unit, from_pos, to_pos, state)
+			enemy.zoc.trigger_zoc_effect(tag, moving_unit, from_pos, to_pos, state)
 
 ## Returns a list of all active threat payloads covering target coordinates for UI or AI checks.
 func get_zoc_threats_at(target_pos: Vector2i, asking_unit: BasePawn) -> Array[Dictionary]:
@@ -134,7 +134,7 @@ func is_unit_disrupted(pawn: BasePawn) -> bool:
 		return false
 
 	for commander in commanders:
-		if commander.is_in_command_range(pawn.grid_pos):
+		if commander.movement.is_in_command_range(pawn.grid_pos):
 			return false
 
 	return true
