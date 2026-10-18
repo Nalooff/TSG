@@ -118,6 +118,12 @@ func spawn_pawn(pawn_scene: PackedScene, grid_pos: Vector2i, team_id : int) -> B
 func _on_pawn_move_requested(pawn: BasePawn, target_coord: Vector2i) -> void:
 	if _is_moving or not is_instance_valid(pawn):
 		return
+	
+	if target_coord in pawn.combat.get_attackable_enemies_tiles(Global.board):
+		var target: BasePawn = get_pawn_at_grid_pos(target_coord)
+		pawn.combat.execute_attack(Global.board, target)
+		clear_selection()
+		return
 
 	var path: Array[Vector2i] = pawn.movement.get_path_to_tile(Global.board, target_coord)
 	if path.size() < 2:

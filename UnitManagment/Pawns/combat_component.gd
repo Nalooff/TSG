@@ -66,6 +66,13 @@ func get_attackable_enemies(board_state: BoardState) -> Array[BasePawn]:
 			
 	return attackable
 
+func get_attackable_enemies_tiles(board_state: BoardState) -> Array[Vector2i]:
+	var attackable = get_attackable_enemies(board_state)
+	var defender_position : Array[Vector2i]
+	for unit in attackable:
+		defender_position.append(unit.grid_pos)
+	return defender_position
+
 func can_attack(board_state: BoardState, target_pawn: BasePawn) -> bool:
 	if target_pawn == null or target_pawn.team_id == pawn.team_id:
 		return false
